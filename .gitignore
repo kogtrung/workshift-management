@@ -1,0 +1,26 @@
+# ===== System =====
+.DS_Store
+Thumbs.db
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# ===== Env chung =====
+.env
+.env.*
+!.env.example
+
+# ===== Logs =====
+*.log
+
+# ===== Temp =====
+*.tmp
+*.swp
+*~
+.cursor/
+.trae/
+
