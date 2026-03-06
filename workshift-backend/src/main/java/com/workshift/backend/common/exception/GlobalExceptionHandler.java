@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -50,6 +52,24 @@ public class GlobalExceptionHandler {
 		HttpStatus status = ex.getStatus();
 		ErrorResponse body = ErrorResponse.of(status.value(), ex.getMessage(), Map.of(), request.getRequestURI());
 		return ResponseEntity.status(status).body(body);
+	}
+
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<ErrorResponse> handleAuthenticationException(
+			AuthenticationException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(401, "Chưa xác thực", Map.of(), request.getRequestURI());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+			AccessDeniedException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(403, "Không có quyền truy cập", Map.of(), request.getRequestURI());
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
 	}
 
 	@ExceptionHandler(Exception.class)
