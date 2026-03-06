@@ -1,0 +1,285 @@
+# PHÂN CHIA NHIỆM VỤ DỰ ÁN (TASK ASSIGNMENT)
+
+> **Mục tiêu**: Chia đều 22 chức năng nghiệp vụ (B01-B22) cho 5 thành viên.
+> **Tiêu chí**: Mỗi người làm tối thiểu 4 chức năng, đảm bảo tính liên kết module.
+
+---
+
+## I. DANH SÁCH NHIỆM VỤ THEO THÀNH VIÊN
+
+### 👨‍💻 Thành viên 1: Auth & Group Core (Nền tảng & Quản trị)
+*Người đi đầu (Pioneer) - Dựng khung dự án*
+
+**Giai đoạn 0: Setup Core (Quan trọng)**
+*   *Branch*: `feature/project-init` (hoặc `feature/auth-core`)
+*   *Commits*:
+    - `chore(init): init spring boot and react project`
+    - `feat(core): add base entity and database config`
+    - `chore(security): basic security configuration`
+    - `feat(user): add user entity and repository`
+*   *Lưu ý*: Tạo `BaseEntity` và `User` entity trước để các thành viên khác sử dụng.
+
+**Nhiệm vụ (Tasks) - 5 Features:**
+1.  **[B01] Đăng ký tài khoản**: API đăng ký, hash password, validate email/username.
+    *   *Branch*: `feature/auth-register`
+    *   *Commits*: `feat(auth): add register endpoint`, `test(auth): add unit test for register`
+    *   *Entity*: Cập nhật `User` (nếu cần).
+2.  **[B02] Đăng nhập**: API login, sinh JWT token, cấu hình Security.
+    *   *Branch*: `feature/auth-login`
+    *   *Commits*: `feat(auth): implement login with jwt`, `chore(security): config security filter chain`
+3.  **[B03] Tạo Group (Quán)**: API tạo group, auto-assign Manager.
+    *   *Branch*: `feature/group-create`
+    *   *Commits*: `feat(group): add create group api`, `fix(group): auto assign creator as manager`
+    *   *Entity*: Tạo `Group`, `GroupMember`.
+4.  **[B04] Join Group**: API gửi request tham gia group.
+    *   *Branch*: `feature/group-join`
+    *   *Commits*: `feat(group): add join request api`
+5.  **[B05] Duyệt thành viên**: API duyệt/từ chối request tham gia.
+    *   *Branch*: `feature/group-approval`
+    *   *Commits*: `feat(group): add member approval logic`
+
+**Quy trình Git (Workflow):**
+1.  **Khởi tạo (Setup Core)**: Clone repo -> Tạo khung project -> Push `feature/project-init` -> Merge vào `develop`.
+2.  **Làm việc (Features)**:
+    - Từ `develop`, tạo các nhánh feature nhỏ (B01, B02...) để làm việc song song hoặc tuần tự.
+    - Merge từng feature vào `develop` ngay khi xong.
+
+---
+
+### 👨‍💻 Thành viên 2: Shift Configuration (Cấu hình Ca làm việc)
+*Người xây dựng dữ liệu nền (Builder)*
+
+**Nhiệm vụ (Tasks) - 4 Features:**
+1.  **[B06] Quản lý Vị trí**: CRUD Position (Pha chế, Thu ngân...).
+    *   *Branch*: `feature/position-crud`
+    *   *Commits*: `feat(position): add crud api`, `test(position): test create position`
+    *   *Entity*: Tạo `Position`.
+2.  **[B07] Cấu hình Ca Mẫu (Shift Template)**: CRUD Template giờ làm việc.
+    *   *Branch*: `feature/shift-template`
+    *   *Commits*: `feat(shift): add shift template entity`, `feat(shift): implement template crud`
+    *   *Entity*: Tạo `ShiftTemplate`.
+3.  **[B09] Tạo Ca làm việc**: API tạo ca (từ template hoặc thủ công), validate trùng giờ.
+    *   *Branch*: `feature/shift-create`
+    *   *Commits*: `feat(shift): add create shift api`, `fix(shift): validate overlapping time`
+    *   *Entity*: Tạo `Shift`.
+4.  **[B10] Cấu hình Nhu cầu**: API set số lượng nhân viên cần cho từng vị trí trong ca.
+    *   *Branch*: `feature/shift-requirement`
+    *   *Commits*: `feat(shift): add requirement configuration`
+    *   *Entity*: Tạo `ShiftRequirement`.
+*(Hỗ trợ)*: Viết Unit Test cho logic check trùng giờ ca.
+
+**Quy trình Git (Workflow):**
+1.  **Chờ đợi**: Đợi TV1 merge khung Auth.
+2.  **Làm việc**:
+    - `git pull origin develop` (Lấy khung Auth về).
+    - Tạo nhánh `feature/shift-config`.
+    - Tạo Entity `Position`, `ShiftTemplate`, `Shift`, `ShiftRequirement`.
+    - **Lưu ý**: Nếu cần sửa `User` entity, hãy báo TV1 hoặc tạo nhánh phụ để tránh conflict.
+
+---
+
+### 👨‍💻 Thành viên 3: Member Operations (Thao tác Nhân viên)
+*Người phát triển tính năng người dùng (Frontend-heavy)*
+
+**Nhiệm vụ (Tasks) - 5 Features:**
+1.  **[B08] Khai báo Lịch rảnh**: API lưu Availability theo tuần.
+    *   *Branch*: `feature/member-availability`
+    *   *Commits*: `feat(member): add availability api`, `style(member): format availability code`
+    *   *Entity*: Tạo `Availability`.
+2.  **[B11] Xem Ca phù hợp**: Logic filter ca `OPEN` + `Availability` + chưa full slot.
+    *   *Branch*: `feature/member-view-shifts`
+    *   *Commits*: `feat(shift): add filter for available shifts`
+3.  **[B12] Đăng ký Ca**: API tạo Registration (`PENDING`), check validate cơ bản.
+    *   *Branch*: `feature/member-registration`
+    *   *Commits*: `feat(reg): implement register api`, `test(reg): test registration validation`
+    *   *Entity*: Tạo `Registration`.
+4.  **[B13] Hủy Đăng ký**: API hủy đăng ký (check rule thời gian).
+    *   *Branch*: `feature/member-cancel-reg`
+    *   *Commits*: `feat(reg): add cancel registration logic`
+5.  **[B19] Xem Lịch cá nhân**: API lấy danh sách ca đã `APPROVED` của user.
+    *   *Branch*: `feature/member-schedule`
+    *   *Commits*: `feat(member): add my schedule api`
+
+**Quy trình Git (Workflow):**
+1.  **Làm việc**:
+    - Có thể làm giao diện (Frontend) trước trên nhánh `feature/member-ui`.
+    - Khi Backend của TV2 xong (API Shift), pull về để tích hợp.
+    - Nhánh backend: `feature/member-api` (Availability, Registration).
+
+---
+
+### 👨‍💻 Thành viên 4: Manager Operations (Thao tác Quản lý & Cấu hình Lương)
+*Người phát triển tính năng quản lý (Logic-heavy)*
+
+**Nhiệm vụ (Tasks) - 6 Features:**
+1.  **[B14] Duyệt Ca**: API approve registration, check quota `ShiftRequirement`.
+    *   *Branch*: `feature/manager-approve-reg`
+    *   *Commits*: `feat(manager): add approve logic`, `fix(manager): check quota before approve`
+2.  **[B15] Từ chối Ca**: API reject registration.
+    *   *Branch*: `feature/manager-reject-reg`
+    *   *Commits*: `feat(manager): add reject api`
+3.  **[B16] Gán nhân viên (Manual Assign)**: API force add member vào ca (bypass flow đăng ký).
+    *   *Branch*: `feature/manager-assign`
+    *   *Commits*: `feat(manager): implement manual assign`
+4.  **[B17] Cảnh báo Thiếu người**: Logic/API check các ca sắp diễn ra mà chưa đủ người (`APPROVED < Required`).
+    *   *Branch*: `feature/manager-alert`
+    *   *Commits*: `feat(manager): add understaffed alert logic`
+5.  **[B24] Cấu hình Lương**: API set lương theo vị trí hoặc nhân viên.
+    *   *Branch*: `feature/salary-config`
+    *   *Commits*: `feat(salary): add salary config api`
+    *   *Entity*: Tạo `SalaryConfig`.
+6.  **[B25] Xem Bảng lương (Payroll)**: API thống kê tổng giờ làm * lương.
+    *   *Branch*: `feature/payroll-report`
+    *   *Commits*: `feat(report): implement payroll calculation`
+
+**Quy trình Git (Workflow):**
+1.  **Làm việc**:
+    - Nhánh `feature/manager-approval`.
+    - Cần data từ TV3 (Registration) để test duyệt đơn.
+    - Trong lúc chờ TV3, có thể viết Unit Test hoặc Mock Data.
+
+---
+
+### 👨‍💻 Thành viên 5: Advanced Features (Tính năng Nâng cao & Báo cáo)
+*Người giải quyết bài toán khó (Algorithm) & Thống kê*
+
+**Nhiệm vụ (Tasks) - 5 Features:**
+1.  **[B18] Gợi ý Nhân viên**: Thuật toán tìm nhân viên phù hợp (Rảnh + Đúng vị trí + Chưa có lịch).
+    *   *Branch*: `feature/algo-recommendation`
+    *   *Commits*: `feat(algo): implement recommendation algorithm`, `test(algo): test recommendation logic`
+2.  **[B20] Khóa Ca (Lock)**: Scheduler/API chuyển trạng thái ca sang `LOCKED`.
+    *   *Branch*: `feature/shift-lock`
+    *   *Commits*: `feat(scheduler): add auto lock shift job`
+3.  **[B21] Yêu cầu Đổi ca**: API tạo request đổi ca, validate logic đổi.
+    *   *Branch*: `feature/shift-change-request`
+    *   *Commits*: `feat(change): add change request api`
+    *   *Entity*: Tạo `ShiftChangeRequest`.
+4.  **[B22] Duyệt Đổi ca**: API xử lý đổi ca (Hủy cũ + Đăng ký mới trong 1 transaction).
+    *   *Branch*: `feature/shift-change-approval`
+    *   *Commits*: `feat(change): implement approval transaction`, `fix(change): rollback on failure`
+5.  **[B26] Báo cáo Hoạt động (Performance Report)**: API thống kê số ca, tổng giờ làm theo tuần/tháng (so sánh hiệu suất).
+    *   *Branch*: `feature/activity-report`
+    *   *Commits*: `feat(report): add activity statistics api`
+
+**Quy trình Git (Workflow):**
+1.  **Làm việc**:
+    - Nhánh `feature/advanced-algo`.
+    - Tính năng Gợi ý nhân viên (Recommendation) không phụ thuộc nhiều vào UI, có thể viết Service/Algorithm độc lập.
+    - Khi TV3 xong data `Availability`, tích hợp vào thuật toán.
+
+---
+
+## II. QUY TRÌNH LÀM VIỆC VỚI GIT (GIT WORKFLOW)
+
+Để đảm bảo code chất lượng và tránh xung đột khi 5 người cùng làm việc, chúng ta tuân thủ quy trình sau:
+
+### 1. Các lệnh Git cơ bản & Ngữ cảnh sử dụng
+| Lệnh | Ngữ cảnh sử dụng |
+| :--- | :--- |
+| `git clone <url>` | **Bắt đầu**: Tải dự án về máy lần đầu tiên. |
+| `git pull origin <branch>` | **Cập nhật**: Lấy code mới nhất từ server về trước khi bắt đầu làm việc. |
+| `git checkout -b <branch>` | **Tạo nhánh**: Bắt đầu một tính năng mới hoặc fix bug. |
+| `git add .` | **Chọn file**: Đưa các file đã sửa vào danh sách chuẩn bị commit. |
+| `git commit -m "msg"` | **Lưu**: Lưu lại các thay đổi vào lịch sử (local). |
+| `git push origin <branch>` | **Đẩy code**: Đưa code từ máy lên server (GitHub/GitLab). |
+| `git merge <branch>` | **Gộp code**: Đưa code từ nhánh con vào nhánh chính (thường làm qua Pull Request). |
+| `git stash` | **Tạm lưu**: Cất tạm code đang làm dở để chuyển sang việc khác gấp. |
+| `git stash pop` | **Lấy lại**: Lấy lại code đã stash để làm tiếp. |
+| `git rebase <branch>` | **Làm gọn**: Cập nhật nhánh con theo nhánh chính mới nhất (dùng cẩn thận). |
+| `git cherry-pick <hash>` | **Nhặt code**: Lấy 1 commit cụ thể từ nhánh khác sang nhánh mình. |
+| `git revert <hash>` | **Hoàn tác**: Tạo commit mới để đảo ngược lại commit bị lỗi (An toàn hơn reset). |
+
+### 2. Mô hình Branching (Git Flow Simplified)
+Chúng ta sử dụng mô hình đơn giản hóa của Git Flow:
+
+*   **`main` (hoặc `master`)**: Nhánh sản phẩm, code luôn chạy ổn định. Chỉ merge vào khi Release.
+*   **`develop`**: Nhánh phát triển chính. Code của mọi người sẽ merge vào đây.
+*   **`feature/<tên-tính-năng>`**: Nhánh con tách từ `develop` để làm từng chức năng.
+    *   VD: `feature/auth-login`, `feature/shift-crud`.
+*   **`hotfix/<tên-lỗi>`**: Nhánh sửa lỗi gấp trên production.
+
+### 3. Quy trình thực hiện Code (Step-by-Step)
+1.  **Cập nhật**: `git checkout develop` -> `git pull origin develop`.
+2.  **Tạo nhánh**: `git checkout -b feature/B01-register-api`.
+3.  **Code & Test**: Viết code, chạy thử ở local.
+4.  **Commit**: `git add .` -> `git commit -m "feat(auth): implement register api"`.
+5.  **Push**: `git push origin feature/B01-register-api`.
+6.  **Pull Request (PR)**: Tạo PR trên GitHub/GitLab từ nhánh của mình vào `develop`.
+7.  **Review**: Mời ít nhất 1 thành viên khác review code.
+8.  **Merge**: Sau khi được approve và pass CI, merge PR vào `develop`.
+
+### 4. Chuẩn Commit Message
+Sử dụng format: `<type>(<scope>): <description>`
+
+*   **`feat`**: Tính năng mới (VD: `feat(auth): add login endpoint`)
+*   **`fix`**: Sửa lỗi (VD: `fix(shift): correct date validation`)
+*   **`docs`**: Tài liệu (VD: `docs: update readme`)
+*   **`style`**: Format code, không đổi logic (VD: `style: format code`)
+*   **`refactor`**: Sửa code nhưng không đổi tính năng (VD: `refactor(service): optimize query`)
+*   **`test`**: Thêm test (VD: `test(auth): add unit test for login`)
+*   **`chore`**: Việc vặt (VD: `chore: update dependencies`)
+
+### 5. Checklist Pre-commit & Pre-push
+Trước khi push code, hãy tự kiểm tra:
+- [ ] Code đã được format (Ctrl+Alt+L trong IntelliJ / Shift+Alt+F trong VSCode).
+- [ ] Không còn biến thừa, log thừa (`System.out.println`, `console.log`).
+- [ ] Đã chạy thử ứng dụng và không bị crash.
+- [ ] Đã chạy Unit Test liên quan (nếu có).
+
+### 6. Xử lý Conflict & Review
+*   **Conflict**: Nếu file bị xung đột, Git sẽ báo. Bạn cần mở file đó lên, chọn giữ code nào (Current Change hay Incoming Change), sau đó commit lại.
+*   **Review**: Người review cần check logic, đặt tên biến, và bảo mật. Không merge nếu code chưa đạt chuẩn.
+
+### 7. Rollback & Revert
+*   Nếu lỡ merge code lỗi vào `develop`: Dùng `git revert <commit-hash-của-lần-merge>` để tạo một commit mới đảo ngược lại thay đổi đó. **Tuyệt đối không dùng `git reset --hard` trên nhánh chung `develop`**.
+
+---
+
+## III. DANH SÁCH TÍNH NĂNG & TIẾN ĐỘ (PRIORITY MATRIX)
+
+| Priority | Feature | Owner | Est. Time | Acceptance Criteria (AC) |
+| :--- | :--- | :--- | :--- | :--- |
+| **P0 (Gấp)** | **B01, B02 (Auth)** | TV1 | 3 ngày | Login/Register thành công, trả về JWT chuẩn. |
+| **P0 (Gấp)** | **B03, B04 (Group)** | TV1 | 2 ngày | Tạo được Group, Join được Group. |
+| **P1 (Cao)** | **B06, B07 (Config)** | TV2 | 3 ngày | Tạo được Vị trí, Ca mẫu. |
+| **P1 (Cao)** | **B08 (Avail)** | TV3 | 2 ngày | Member lưu được lịch rảnh. |
+| **P1 (Cao)** | **B09 (Shift)** | TV2 | 3 ngày | Manager tạo được lịch làm việc từ template. |
+| **P2 (TB)** | **B11, B12 (Reg)** | TV3 | 3 ngày | Member thấy và đăng ký được ca. |
+| **P2 (TB)** | **B14, B15 (Approve)**| TV4 | 2 ngày | Manager duyệt được đơn. |
+| **P3 (Thấp)**| **B18, B21 (Advanced)**| TV5 | 5 ngày | Gợi ý nhân viên chạy đúng; Đổi ca hoạt động ổn. |
+
+---
+
+## IV. QUY TRÌNH PHÁT TRIỂN & DEPLOYMENT (CI/CD)
+
+### 1. Môi trường (Environments)
+*   **Local**: Môi trường phát triển trên máy cá nhân của từng thành viên.
+*   **Staging (Develop)**: Môi trường kiểm thử tích hợp, code được deploy tự động từ nhánh `develop`.
+*   **Production**: Môi trường chạy thật, code được deploy từ nhánh `main` sau khi release.
+
+### 2. Quy trình Release (Git Flow Release)
+1.  Từ nhánh `develop` (đã test ổn định), tạo nhánh `release/v1.0.0`.
+2.  Bump version trong `pom.xml` (Backend) và `package.json` (Frontend).
+3.  Test lần cuối trên nhánh release.
+4.  Merge `release/v1.0.0` vào `main` và `develop`.
+5.  Tag version trên `main`: `git tag -a v1.0.0 -m "Release version 1.0.0"`.
+6.  Deploy `main` lên Production.
+
+### 3. Quy trình Deploy
+*   **Backend**: Build file JAR -> Copy lên Server -> Restart Service.
+*   **Frontend**: Build static files (`npm run build`) -> Upload lên Hosting (Nginx/S3/Vercel).
+*   **Database**: Chạy script migration (nếu có thay đổi schema).
+
+### 4. Rollback Plan (Kế hoạch dự phòng)
+*   **Code lỗi**: Revert commit merge trên `main`, build và deploy lại version cũ.
+*   **DB lỗi**: Restore backup database gần nhất trước khi deploy.
+*   **Config lỗi**: Rollback file cấu hình env.
+
+---
+
+## V. CÔNG CỤ HỖ TRỢ (TOOLS)
+*   **IDE**: IntelliJ IDEA (Backend), VS Code (Frontend).
+*   **API Test**: Postman (Shared Collection).
+*   **Database**: MySQL Workbench / DBeaver.
+*   **Communication**: Slack / Discord / Zalo.
+*   **Task Management**: Jira / Trello / GitHub Projects.
