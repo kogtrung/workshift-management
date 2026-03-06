@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.workshift.backend.auth.dto.LoginRequest;
+import com.workshift.backend.auth.dto.LoginResponse;
 import com.workshift.backend.auth.dto.RegisterRequest;
 import com.workshift.backend.auth.dto.RegisterResponse;
 import com.workshift.backend.common.api.ApiResponse;
@@ -25,5 +27,11 @@ public class AuthController {
 	public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
 		RegisterResponse data = authService.register(request);
 		return ResponseEntity.status(201).body(ApiResponse.created("Đăng ký thành công", data));
+	}
+
+	@PostMapping("/login")
+	public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+		LoginResponse data = authService.login(request);
+		return ResponseEntity.ok(ApiResponse.ok("Đăng nhập thành công", data));
 	}
 }
