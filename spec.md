@@ -33,7 +33,6 @@
 | **B20** | **Khóa Ca (Lock)** | System | Tự động hoặc Manager thủ công chuyển trạng thái ca sang `LOCKED` (không cho sửa đổi). | Input: Shift ID<br>Output: Status LOCKED |
 | **B21** | **Yêu cầu Đổi ca** | Member | Member muốn đổi ca đã `APPROVED` sang một ca khác (hoặc chỉ xin hủy có lý do đặc biệt). | Input: From Shift, To Shift<br>Output: Request PENDING |
 | **B22** | **Duyệt Đổi ca** | Manager | Manager xem xét yêu cầu đổi. Nếu duyệt: Hủy ca cũ, Đăng ký ca mới (nếu có). | Input: Request ID, Action<br>Output: Updated Regs |
-
 | **B23** | **Quản lý Hệ thống (Admin)** | Admin | Quản trị toàn hệ thống: Xem danh sách User, Group; Khóa tài khoản/Group vi phạm. | Input: Action, Target ID<br>Output: Updated Status |
 | **B24** | **Cấu hình Lương** | Manager | Thiết lập mức lương theo giờ cho từng Vị trí hoặc từng Nhân viên. | Input: Position/User, Rate<br>Output: Salary Config ID |
 | **B25** | **Xem Bảng lương (Payroll)** | Manager | Xem thống kê tổng giờ làm và lương dự kiến của nhân viên theo tháng. | Input: Month, Year<br>Output: Payroll Report |
