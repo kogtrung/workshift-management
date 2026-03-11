@@ -32,7 +32,7 @@ public class SecurityConfig {
 				.httpBasic(hb -> hb.disable())
 				.formLogin(fl -> fl.disable())
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/api/v1/auth/**").permitAll()
+						.requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
 						.requestMatchers("/actuator/health", "/actuator/info", "/error").permitAll()
 						.anyRequest().authenticated()
 				)
