@@ -16,7 +16,7 @@ import com.workshift.backend.repository.UserRepository;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class AuthLoginTest {
+class AuthRefreshTokenTest {
 	@Autowired
 	private AuthService authService;
 
@@ -27,28 +27,34 @@ class AuthLoginTest {
 	private PasswordEncoder passwordEncoder;
 
 	@Test
-	void login_shouldReturnJwtToken() {
+	void refresh_shouldReturnNewAccessAndRefreshToken() {
 		User user = new User();
-		user.setUsername("user_login");
-		user.setEmail("user_login@example.com");
+		user.setUsername("refresh_user");
+		user.setEmail("refresh_user@example.com");
 		user.setPassword(passwordEncoder.encode("secret123"));
-		user.setFullName("User Login");
+		user.setFullName("Refresh User");
 		userRepository.save(user);
 
-		var response = authService.login(new LoginRequest("user_login@example.com", "secret123"));
-		assertNotNull(response.token());
-		assertNotNull(response.refreshToken());
+		var loginResponse = authService.login(new LoginRequest("refresh_user", "secret123"));
+		assertNotNull(loginResponse.refreshToken());
+
+		var refreshResponse = authService.refresh(loginResponse.refreshToken());
+		assertNotNull(refreshResponse.token());
+		assertNotNull(refreshResponse.refreshToken());
 	}
 
 	@Test
-	void login_shouldRejectWrongPassword() {
+	void refresh_shouldRejectOldRefreshTokenAfterRotation() {
 		User user = new User();
-		user.setUsername("user_wrong");
-		user.setEmail("user_wrong@example.com");
+		user.setUsername("refresh_rotate");
+		user.setEmail("refresh_rotate@example.com");
 		user.setPassword(passwordEncoder.encode("secret123"));
-		user.setFullName("User Wrong");
+		user.setFullName("Refresh Rotate");
 		userRepository.save(user);
 
-		assertThrows(BusinessException.class, () -> authService.login(new LoginRequest("user_wrong", "wrong")));
+		var loginResponse = authService.login(new LoginRequest("refresh_rotate", "secret123"));
+		authService.refresh(loginResponse.refreshToken());
+
+		assertThrows(BusinessException.class, () -> authService.refresh(loginResponse.refreshToken()));
 	}
 }

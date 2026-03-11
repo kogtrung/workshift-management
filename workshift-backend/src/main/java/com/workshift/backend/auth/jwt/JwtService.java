@@ -2,6 +2,7 @@ package com.workshift.backend.auth.jwt;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -15,41 +16,81 @@ import com.workshift.backend.domain.User;
 
 @Service
 public class JwtService {
-	private final Algorithm algorithm;
-	private final JWTVerifier verifier;
+	private final Algorithm accessAlgorithm;
+	private final Algorithm refreshAlgorithm;
+	private final JWTVerifier accessVerifier;
+	private final JWTVerifier refreshVerifier;
 	private final String issuer;
-	private final long expiresInSeconds;
+	private final long accessExpiresInSeconds;
+	private final long refreshExpiresInSeconds;
 
 	public JwtService(
-			@Value("${JWT_SECRET:change-me}") String secret,
+			@Value("${JWT_SECRET:change-me}") String accessSecret,
+			@Value("${JWT_REFRESH_SECRET:change-me-refresh}") String refreshSecret,
 			@Value("${JWT_ISSUER:workshift-backend}") String issuer,
-			@Value("${JWT_EXPIRES_IN_SECONDS:86400}") long expiresInSeconds
+			@Value("${JWT_EXPIRES_IN_SECONDS:900}") long accessExpiresInSeconds,
+			@Value("${JWT_REFRESH_EXPIRES_IN_SECONDS:604800}") long refreshExpiresInSeconds
 	) {
-		this.algorithm = Algorithm.HMAC256(secret);
+		this.accessAlgorithm = Algorithm.HMAC256(accessSecret);
+		this.refreshAlgorithm = Algorithm.HMAC256(refreshSecret);
 		this.issuer = issuer;
-		this.expiresInSeconds = expiresInSeconds;
-		this.verifier = JWT.require(this.algorithm).withIssuer(this.issuer).build();
+		this.accessExpiresInSeconds = accessExpiresInSeconds;
+		this.refreshExpiresInSeconds = refreshExpiresInSeconds;
+		this.accessVerifier = JWT.require(this.accessAlgorithm).withIssuer(this.issuer).withClaim("token_type", "access").build();
+		this.refreshVerifier = JWT.require(this.refreshAlgorithm)
+				.withIssuer(this.issuer)
+				.withClaim("token_type", "refresh")
+				.build();
 	}
 
-	public String generateToken(User user) {
+	public String generateAccessToken(User user) {
 		Instant now = Instant.now();
-		Instant expiresAt = now.plusSeconds(expiresInSeconds);
+		Instant expiresAt = now.plusSeconds(accessExpiresInSeconds);
 
 		return JWT.create()
 				.withIssuer(issuer)
 				.withIssuedAt(now)
 				.withExpiresAt(expiresAt)
+				.withJWTId(UUID.randomUUID().toString())
 				.withSubject(String.valueOf(user.getId()))
 				.withClaim("username", user.getUsername())
 				.withClaim("role", user.getGlobalRole().name())
-				.sign(algorithm);
+				.withClaim("token_type", "access")
+				.sign(accessAlgorithm);
 	}
 
-	public Optional<DecodedJWT> verify(String token) {
+	public String generateRefreshToken(User user) {
+		Instant now = Instant.now();
+		Instant expiresAt = now.plusSeconds(refreshExpiresInSeconds);
+
+		return JWT.create()
+				.withIssuer(issuer)
+				.withIssuedAt(now)
+				.withExpiresAt(expiresAt)
+				.withJWTId(UUID.randomUUID().toString())
+				.withSubject(String.valueOf(user.getId()))
+				.withClaim("username", user.getUsername())
+				.withClaim("token_type", "refresh")
+				.sign(refreshAlgorithm);
+	}
+
+	public Optional<DecodedJWT> verifyAccessToken(String token) {
 		try {
-			return Optional.of(verifier.verify(token));
+			return Optional.of(accessVerifier.verify(token));
 		} catch (JWTVerificationException ex) {
 			return Optional.empty();
 		}
+	}
+
+	public Optional<DecodedJWT> verifyRefreshToken(String token) {
+		try {
+			return Optional.of(refreshVerifier.verify(token));
+		} catch (JWTVerificationException ex) {
+			return Optional.empty();
+		}
+	}
+
+	public Instant getRefreshTokenExpiresAt(DecodedJWT decodedJWT) {
+		return decodedJWT.getExpiresAt().toInstant();
 	}
 }
