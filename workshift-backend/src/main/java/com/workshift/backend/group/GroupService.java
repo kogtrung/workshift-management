@@ -15,6 +15,7 @@ import com.workshift.backend.domain.GroupStatus;
 import com.workshift.backend.domain.User;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
+import com.workshift.backend.group.dto.JoinGroupResponse;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.UserRepository;
@@ -62,6 +63,38 @@ public class GroupService {
 				savedGroup.getDescription(),
 				savedGroup.getStatus().name(),
 				creator.getId()
+		);
+	}
+
+	@Transactional
+	public JoinGroupResponse joinGroup(String username, Long groupId) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+
+		Group group = groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy group"));
+
+		if (group.getStatus() != GroupStatus.ACTIVE) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Group hiện không hoạt động");
+		}
+
+		if (groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId()).isPresent()) {
+			throw new BusinessException(HttpStatus.CONFLICT, "Bạn đã tham gia hoặc gửi yêu cầu vào group này");
+		}
+
+		GroupMember groupMember = new GroupMember();
+		groupMember.setGroup(group);
+		groupMember.setUser(user);
+		groupMember.setRole(GroupRole.MEMBER);
+		groupMember.setStatus(GroupMemberStatus.PENDING);
+		groupMember.setJoinedAt(null);
+		groupMemberRepository.save(groupMember);
+
+		return new JoinGroupResponse(
+				group.getId(),
+				user.getId(),
+				groupMember.getRole().name(),
+				groupMember.getStatus().name()
 		);
 	}
 }
