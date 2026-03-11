@@ -25,8 +25,8 @@ public class JwtService {
 	private final long refreshExpiresInSeconds;
 
 	public JwtService(
-			@Value("${JWT_SECRET:change-me}") String accessSecret,
-			@Value("${JWT_REFRESH_SECRET:change-me-refresh}") String refreshSecret,
+			@Value("${JWT_SECRET}") String accessSecret,
+			@Value("${JWT_REFRESH_SECRET}") String refreshSecret,
 			@Value("${JWT_ISSUER:workshift-backend}") String issuer,
 			@Value("${JWT_EXPIRES_IN_SECONDS:900}") long accessExpiresInSeconds,
 			@Value("${JWT_REFRESH_EXPIRES_IN_SECONDS:604800}") long refreshExpiresInSeconds
