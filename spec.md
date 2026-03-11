@@ -2,8 +2,8 @@
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
 >
-> Phiên bản: 1.1 (Cập nhật chuẩn hóa Enterprise)
-> Ngày cập nhật: 2026-02-24
+> Phiên bản: 1.2 (Cập nhật Auth token flow)
+> Ngày cập nhật: 2026-03-12
 
 ---
 
@@ -11,8 +11,10 @@
 
 | ID | Nghiệp vụ | Role | Mô tả chi tiết (Business Logic) | Input/Output |
 | :--- | :--- | :--- | :--- | :--- |
-| **B01** | **Đăng ký tài khoản** | User | Tạo tài khoản mới. Email & Username phải duy nhất. Password phải được hash. | Input: Email, User, Pass<br>Output: User ID, Token |
-| **B02** | **Đăng nhập** | User | Xác thực user. Trả về token (JWT/Session) kèm thông tin user cơ bản. | Input: Email/User, Pass<br>Output: Token |
+| **B01** | **Đăng ký tài khoản** | User | Tạo tài khoản mới. Email & Username phải duy nhất. Password phải được hash. | Input: Email, User, Pass<br>Output: User Info |
+| **B02** | **Đăng nhập** | User | Xác thực user. Trả về access token + refresh token kèm thông tin user cơ bản. | Input: Email/User, Pass<br>Output: Access Token, Refresh Token |
+| **B02.1** | **Làm mới Access Token** | User | Dùng refresh token hợp lệ để lấy access token mới và refresh token mới (rotation). Refresh token cũ bị revoke. | Input: Refresh Token<br>Output: Access Token mới, Refresh Token mới |
+| **B02.2** | **Đăng xuất** | User | User đã đăng nhập thực hiện logout. Hệ thống revoke toàn bộ refresh token còn hiệu lực của user. | Input: Bearer Access Token<br>Output: Logout Result |
 | **B03** | **Tạo Group (Quán)** | Manager | User tạo group mới. Người tạo tự động trở thành MANAGER của group đó. | Input: Name, Description<br>Output: Group Info |
 | **B04** | **Join Group** | User | User gửi yêu cầu tham gia vào một group đã biết (qua ID hoặc Code). Trạng thái: `PENDING`. | Input: Group ID<br>Output: Request Status |
 | **B05** | **Duyệt thành viên** | Manager | Manager xem danh sách yêu cầu `PENDING`. Duyệt (`APPROVED`) hoặc từ chối (`REJECTED`). | Input: Member ID, Action<br>Output: Updated Status |
@@ -209,6 +211,181 @@
     *   Không thể thao tác (Đăng ký/Hủy/Duyệt) trên `Shift` có status `LOCKED` hoặc `COMPLETED`.
     *   Manager chỉ được duyệt nhân viên thuộc Group mình quản lý.
     *   Dữ liệu `Availability`, `Shift`, `Registration` phải luôn gắn với `group_id` để đảm bảo tính cách ly dữ liệu (Multi-tenancy logic).
+4.  **Auth Token Rules**:
+    *   Access token và refresh token phải tách riêng secret + TTL.
+    *   Refresh token được lưu hash (`SHA-256`) tại DB và có trạng thái revoke.
+    *   Khi gọi refresh thành công, refresh token cũ bị revoke và phát cặp token mới (rotation).
+    *   Logout thực hiện revoke các refresh token active của user.
 
 ---
 *Tài liệu này dùng làm căn cứ chính xác nhất để phát triển Database và API.*
+
+## V. DANH SÁCH CÔNG VIỆC THEO CHỨC NĂNG (IMPLEMENTATION CHECKLIST)
+
+### B01 Đăng ký tài khoản
+- Backend: POST /api/v1/auth/register; validate unique email/username; hash password; trả thông tin user đã tạo.
+- Dữ liệu: Unique email/username; status ACTIVE; global_role USER.
+- Frontend: Form đăng ký; xử lý lỗi; auto login/redirect.
+- Kiểm thử: Unit hash/validation; integration user được tạo đúng.
+
+### B02 Đăng nhập
+- Backend: POST /api/v1/auth/login nhận username/email + password; trả access token + refresh token + thông tin cơ bản; chặn BANNED.
+- Bảo mật: Access/Refresh tách riêng secret + TTL, token_type claim, jti random; stateless filter chain.
+- Frontend: Form login; lưu access token/refresh token an toàn; redirect dashboard.
+- Kiểm thử: Sai mật khẩu; tài khoản khóa; thành công nhận đủ cặp token.
+
+### B02.1 Làm mới Access Token
+- Backend: POST /api/v1/auth/refresh nhận refresh token; verify token + verify hash DB + kiểm tra chưa revoke/chưa hết hạn.
+- Logic: Refresh rotation (revoke refresh token cũ, phát access token mới + refresh token mới).
+- Frontend: Interceptor khi access token hết hạn gọi refresh; cập nhật lại token lưu cục bộ.
+- Kiểm thử: Refresh thành công; reject refresh token cũ sau rotation; reject token invalid/expired.
+
+### B02.2 Đăng xuất
+- Backend: POST /api/v1/auth/logout; yêu cầu access token hợp lệ; revoke toàn bộ refresh token active của user.
+- Bảo mật: Logout có hiệu lực ở lớp refresh token; access token cũ hết hiệu lực theo TTL.
+- Frontend: Xóa access token/refresh token local sau logout API thành công.
+- Kiểm thử: Logout thành công; refresh token cũ không dùng lại được.
+
+### B03 Tạo Group (Quán)
+- Backend: POST /api/v1/groups; người tạo auto MANAGER; created_by liên kết; chỉ người đăng nhập.
+- Dữ liệu: Group status ACTIVE; audit fields.
+- Frontend: Form tạo group; danh sách group của tôi.
+- Kiểm thử: Tạo thành công; vai trò MANAGER được gán.
+
+### B04 Join Group
+- Backend: POST /api/v1/groups/{id}/join -> GroupMember PENDING; chống trùng (user_id, group_id).
+- Dữ liệu: Composite unique cho GroupMember; khởi tạo PENDING.
+- Frontend: Nút tham gia; hiển thị trạng thái yêu cầu.
+- Kiểm thử: Không tạo trùng; chuyển trạng thái đúng.
+
+### B05 Duyệt thành viên
+- Backend: PATCH /api/v1/groups/{id}/members/{memberId} APPROVE/REJECT; chỉ MANAGER group đó.
+- Bảo mật: Check role MANAGER; multi-tenancy theo group_id.
+- Frontend: Bảng yêu cầu PENDING; duyệt/từ chối kèm lý do.
+- Kiểm thử: Duyệt; từ chối; bảo vệ quyền.
+
+### B06 Quản lý Vị trí
+- Backend: CRUD /api/v1/groups/{id}/positions; name bắt buộc; optional color_code.
+- Dữ liệu: Position gắn group_id; name duy nhất trong group.
+- Frontend: Màn cấu hình vị trí; chọn màu hiển thị lịch.
+- Kiểm thử: Tạo/sửa/xóa; quyền MANAGER.
+
+### B07 Cấu hình Ca Mẫu
+- Backend: CRUD /api/v1/groups/{id}/shift-templates; name/start/end; optional description.
+- Dữ liệu: Validate khoảng giờ; tránh giao nhau tùy chính sách.
+- Frontend: Quản lý ca mẫu; tạo nhanh ca.
+- Kiểm thử: Validate thời gian; CRUD đúng group.
+
+### B08 Khai báo Lịch rảnh
+- Backend: CRUD /api/v1/groups/{id}/availability; day_of_week, start_time, end_time; một user nhiều slot.
+- Ràng buộc: start < end; gắn group_id; chặn chồng lấn (khuyến nghị).
+- Frontend: UI chọn thứ/giờ theo tuần; danh sách slot.
+- Kiểm thử: Tạo hợp lệ; từ chối slot chồng lấn.
+
+### B09 Tạo Ca làm việc
+- Backend: POST /api/v1/groups/{id}/shifts; từ template hoặc thủ công; hỗ trợ batch tạo tuần.
+- Dữ liệu: status OPEN mặc định; validate date + thời gian.
+- Frontend: Form tạo ca; batch tạo tuần.
+- Kiểm thử: Tạo đơn/loạt; liên kết template_id.
+
+### B10 Cấu hình Nhu cầu
+- Backend: POST /api/v1/shifts/{id}/requirements thêm position + quantity; prefill từ template.
+- Ràng buộc: quantity >= 1; không trùng position trong cùng shift.
+- Frontend: UI thêm/sửa nhu cầu theo vị trí; tổng số cần.
+- Kiểm thử: Đúng số lượng; cản duplicate.
+
+### B11 Xem Ca phù hợp
+- Backend: GET /api/v1/groups/{id}/shifts?fit=me&range=... lọc OPEN, còn thiếu, availability bao trùm.
+- Logic: Avail.Start <= Shift.Start && Avail.End >= Shift.End; loại trừ lịch trùng đã APPROVED.
+- Frontend: Lịch tuần màu/trạng thái; bộ lọc phù hợp.
+- Kiểm thử: Danh sách chính xác theo khung giờ.
+
+### B12 Đăng ký Ca
+- Backend: POST /api/v1/shifts/{id}/register với position_id; Registration PENDING; check LOCKED.
+- Ràng buộc: Không đăng ký trùng ca; gắn group_id; note tùy chọn.
+- Frontend: Button đăng ký trong card ca; chọn vị trí.
+- Kiểm thử: PENDING tạo đúng; chặn khi LOCKED.
+
+### B13 Hủy Đăng ký
+- Backend: PATCH /api/v1/registrations/{id}/cancel với lý do; chỉ khi chưa LOCKED và trước giờ bắt đầu.
+- Logic: So giờ hệ thống; status -> CANCELLED.
+- Frontend: Hành động hủy; confirm; nhập lý do.
+- Kiểm thử: Chặn sau giờ; chặn khi LOCKED.
+
+### B14 Duyệt Ca
+- Backend: PATCH /api/v1/registrations/{id}/approve; trừ slot trong ShiftRequirement; check đủ chỗ.
+- Ràng buộc: Không vượt quantity; member thuộc group.
+- Frontend: Danh sách PENDING theo ca; nút duyệt.
+- Kiểm thử: Approve đúng; reject khi hết slot.
+
+### B15 Từ chối Ca
+- Backend: PATCH /api/v1/registrations/{id}/reject với lý do; cập nhật manager_note.
+- Ràng buộc: Trạng thái -> REJECTED; lưu audit.
+- Frontend: Nút từ chối + nhập lý do; hiển thị kết quả.
+- Kiểm thử: Đổi trạng thái; lưu lý do.
+
+### B16 Gán nhân viên
+- Backend: POST /api/v1/shifts/{id}/assign với user_id, position_id; đặt Registration APPROVED bỏ qua PENDING.
+- Ràng buộc: Tôn trọng quantity; có thể force nếu cho phép; chặn LOCKED.
+- Frontend: Quick assign từ UI ca; xem gợi ý trước khi gán.
+- Kiểm thử: Gán thành công; không vượt slot.
+
+### B17 Cảnh báo Thiếu người
+- Backend: Job định kỳ hoặc query realtime đánh dấu ca sắp đến giờ còn thiếu APPROVED so với Requirement.
+- Dữ liệu/UI: Flag/field hoặc computed; expose qua API.
+- Frontend: Badge/cảnh báo trên lịch; filter “Thiếu người”.
+- Kiểm thử: Case cận giờ; cập nhật trạng thái.
+
+### B18 Gợi ý Nhân viên
+- Backend: GET /api/v1/shifts/{id}/suggestions trả danh sách member availability bao trùm và không lịch trùng.
+- Logic: Loại trừ người đã APPROVED ca trùng/overlap; cân nhắc ưu tiên.
+- Frontend: Modal danh sách gợi ý + nút gán.
+- Kiểm thử: Đúng logic bao phủ; không trùng lịch.
+
+### B19 Xem Lịch cá nhân
+- Backend: GET /api/v1/me/calendar?range=... trả các registration APPROVED.
+- Dữ liệu: Join Shift + Position để render đầy đủ.
+- Frontend: View calendar riêng; màu theo vị trí.
+- Kiểm thử: Range chính xác; chỉ dữ liệu người dùng.
+
+### B20 Khóa Ca (Lock)
+- Backend: PATCH /api/v1/shifts/{id}/lock (MANAGER) hoặc auto job; chuyển status LOCKED.
+- Logic: Chặn thao tác sau LOCKED; điều kiện thời gian.
+- Frontend: Hành động khóa; hiển thị trạng thái.
+- Kiểm thử: Không thể đăng ký/hủy sau LOCKED.
+
+### B21 Yêu cầu Đổi ca
+- Backend: POST /api/v1/shift-change-requests từ APPROVED hiện tại sang ca khác hoặc xin nghỉ; status PENDING.
+- Dữ liệu: from_shift_id bắt buộc; to_shift_id nullable khi xin nghỉ; reason tùy chọn.
+- Frontend: Form yêu cầu đổi/hủy; danh sách yêu cầu.
+- Kiểm thử: Tạo đúng; ràng buộc nguồn là APPROVED.
+
+### B22 Duyệt Đổi ca
+- Backend: PATCH /api/v1/shift-change-requests/{id} approve/reject; nếu approve: hủy reg cũ, tạo/approve reg mới nếu có to_shift.
+- Logic: Tôn trọng requirement ca mới; audit manager_note.
+- Frontend: Màn duyệt yêu cầu; hiển thị kết quả.
+- Kiểm thử: Luồng approve/reject; đồng bộ lịch.
+
+### B23 Quản lý Hệ thống (Admin)
+- Backend: Admin endpoints list users, groups; khóa/bỏ khóa user/group; guard global_role ADMIN.
+- Dữ liệu: status chuyển BANNED/INACTIVE; log audit.
+- Frontend: Trang Admin: bảng, khóa/mở.
+- Kiểm thử: Quyền admin; tác động đúng đối tượng.
+
+### B24 Cấu hình Lương
+- Backend: CRUD /api/v1/groups/{id}/salary-configs theo vị trí hoặc người dùng; hiệu lực effective_date.
+- Ràng buộc: hourly_rate >= 0; ưu tiên user-specific > position-specific.
+- Frontend: Form cấu hình; timeline hiệu lực.
+- Kiểm thử: Tính ưu tiên; CRUD hợp lệ.
+
+### B25 Xem Bảng lương (Payroll)
+- Backend: GET /api/v1/groups/{id}/payroll?month=... tổng hợp giờ làm từ registrations APPROVED + thời gian shift; áp dụng SalaryConfig.
+- Tính toán: Tổng giờ = sum(end-start) theo ca; xử lý ca gãy nếu có.
+- Frontend: Bảng/biểu đồ; export CSV.
+- Kiểm thử: Đúng số giờ/lương; edge khi thiếu config.
+
+### B26 Báo cáo Hoạt động
+- Backend: GET /api/v1/groups/{id}/performance?range=... trả số ca, tổng giờ theo tuần/tháng; nhóm theo user/position.
+- Dữ liệu: Aggregation, indexes tối ưu query.
+- Frontend: Chart line/bar, filter range; drilldown.
+- Kiểm thử: Đúng số liệu; hiệu năng với dữ liệu lớn.

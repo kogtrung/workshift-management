@@ -43,7 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		jwtService.verify(token).ifPresent(decoded -> {
+		jwtService.verifyAccessToken(token).ifPresent(decoded -> {
 			String username = decoded.getClaim("username").asString();
 			if (username == null || username.isBlank()) {
 				return;
