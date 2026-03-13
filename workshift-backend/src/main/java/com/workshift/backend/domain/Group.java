@@ -21,6 +21,9 @@ public class Group extends BaseEntity {
 	@Column(name = "description", length = 1000)
 	private String description;
 
+	@Column(name = "join_code", unique = true, length = 6)
+	private String joinCode;
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "created_by", nullable = false)
 	private User createdBy;
@@ -43,6 +46,14 @@ public class Group extends BaseEntity {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	public String getJoinCode() {
+		return joinCode;
+	}
+
+	public void setJoinCode(String joinCode) {
+		this.joinCode = joinCode;
 	}
 
 	public User getCreatedBy() {
