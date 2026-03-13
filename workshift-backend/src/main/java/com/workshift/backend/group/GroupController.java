@@ -13,6 +13,7 @@ import com.workshift.backend.common.api.ApiResponse;
 import com.workshift.backend.common.exception.BusinessException;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
+import com.workshift.backend.group.dto.JoinGroupByCodeRequest;
 import com.workshift.backend.group.dto.JoinGroupResponse;
 
 import jakarta.validation.Valid;
@@ -46,6 +47,19 @@ public class GroupController {
 		}
 
 		JoinGroupResponse data = groupService.joinGroup(authentication.getName(), groupId);
+		return ResponseEntity.status(201).body(ApiResponse.created("Gửi yêu cầu tham gia group thành công", data));
+	}
+
+	@PostMapping("/join-by-code")
+	public ResponseEntity<ApiResponse<JoinGroupResponse>> joinGroupByCode(
+			Authentication authentication,
+			@Valid @RequestBody JoinGroupByCodeRequest request
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		JoinGroupResponse data = groupService.joinGroupByCode(authentication.getName(), request.joinCode());
 		return ResponseEntity.status(201).body(ApiResponse.created("Gửi yêu cầu tham gia group thành công", data));
 	}
 }

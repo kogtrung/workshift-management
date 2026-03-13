@@ -50,6 +50,8 @@ class GroupServiceTest {
 		);
 
 		assertNotNull(response.id());
+		assertNotNull(response.joinCode());
+		assertEquals(6, response.joinCode().length());
 		assertTrue(groupRepository.findById(response.id()).isPresent());
 
 		var groupMember = groupMemberRepository.findByGroupIdAndUserId(response.id(), savedCreator.getId()).orElseThrow();
@@ -116,5 +118,34 @@ class GroupServiceTest {
 		groupService.joinGroup(savedMember.getUsername(), createdGroup.id());
 
 		assertThrows(BusinessException.class, () -> groupService.joinGroup(savedMember.getUsername(), createdGroup.id()));
+	}
+
+	@Test
+	void joinGroupByCode_shouldCreatePendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_join_code");
+		manager.setEmail("manager_join_code@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Join Code");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Join Code", "Nhóm để test join code")
+		);
+
+		User member = new User();
+		member.setUsername("member_join_code");
+		member.setEmail("member_join_code@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Join Code");
+		User savedMember = userRepository.save(member);
+
+		var response = groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+
+		assertEquals(createdGroup.id(), response.groupId());
+		assertEquals(savedMember.getId(), response.userId());
+		assertEquals(GroupRole.MEMBER.name(), response.role());
+		assertEquals(GroupMemberStatus.PENDING.name(), response.status());
 	}
 }
