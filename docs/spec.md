@@ -2,8 +2,8 @@
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
 >
-> Phiên bản: 1.2 (Cập nhật Auth token flow)
-> Ngày cập nhật: 2026-03-12
+> Phiên bản: 1.3 (Cập nhật API Group B03-B05)
+> Ngày cập nhật: 2026-03-13
 
 ---
 
@@ -15,8 +15,8 @@
 | **B02** | **Đăng nhập** | User | Xác thực user. Trả về access token + refresh token kèm thông tin user cơ bản. | Input: Email/User, Pass<br>Output: Access Token, Refresh Token |
 | **B02.1** | **Làm mới Access Token** | User | Dùng refresh token hợp lệ để lấy access token mới và refresh token mới (rotation). Refresh token cũ bị revoke. | Input: Refresh Token<br>Output: Access Token mới, Refresh Token mới |
 | **B02.2** | **Đăng xuất** | User | User đã đăng nhập thực hiện logout. Hệ thống revoke toàn bộ refresh token còn hiệu lực của user. | Input: Bearer Access Token<br>Output: Logout Result |
-| **B03** | **Tạo Group (Quán)** | Manager | User tạo group mới. Người tạo tự động trở thành MANAGER của group đó. | Input: Name, Description<br>Output: Group Info |
-| **B04** | **Join Group** | User | User gửi yêu cầu tham gia vào một group đã biết (qua ID hoặc Code). Trạng thái: `PENDING`. | Input: Group ID<br>Output: Request Status |
+| **B03** | **Tạo Group (Quán)** | Manager | User tạo group mới. Người tạo tự động trở thành MANAGER của group đó và hệ thống sinh `joinCode` 6 ký tự. | Input: Name, Description<br>Output: Group Info, Join Code |
+| **B04** | **Join Group** | User | User gửi yêu cầu tham gia vào group qua ID hoặc `joinCode`. Trạng thái: `PENDING`. | Input: Group ID hoặc Join Code<br>Output: Request Status |
 | **B05** | **Duyệt thành viên** | Manager | Manager xem danh sách yêu cầu `PENDING`. Duyệt (`APPROVED`) hoặc từ chối (`REJECTED`). | Input: Member ID, Action<br>Output: Updated Status |
 | **B06** | **Quản lý Vị trí** | Manager | Định nghĩa các vị trí làm việc trong quán (VD: Phục vụ, Pha chế, Bảo vệ). | Input: Name<br>Output: Position ID |
 | **B07** | **Cấu hình Ca Mẫu (Shift Template)** | Manager | Tạo các khung giờ làm việc mẫu (VD: Ca Sáng 7-12h, Ca Chiều 12-17h). Giúp tạo lịch nhanh hơn. | Input: Name, Start, End<br>Output: Template ID |
@@ -66,6 +66,7 @@
 | `id` | UUID/Long | PK | ID nhóm |
 | `name` | String | Not Null | Tên quán |
 | `description` | String | Nullable | Mô tả thêm |
+| `join_code` | String(6) | Unique, Nullable | Mã tham gia group, sinh tự động |
 | `created_by` | User ID | FK | Người tạo (Owner) |
 | `status` | Enum | ACTIVE, INACTIVE | Trạng thái hoạt động |
 
@@ -205,6 +206,7 @@
 1.  **Unique Constraint**:
     *   Một nhân viên không thể có 2 `Registration` trạng thái `APPROVED` trùng hoặc giao nhau về thời gian (trong cùng 1 Group hoặc khác Group - *Tùy chọn nâng cao, ở đây scope MVP chỉ check trong cùng Group*).
     *   `GroupMember`: Cặp `(user_id, group_id)` phải duy nhất.
+    *   `Group.join_code` phải duy nhất toàn hệ thống (khi có giá trị).
 2.  **Data Integrity**:
     *   Số lượng `Registration (APPROVED)` của một `Position` trong `Shift` không được vượt quá `ShiftRequirement.quantity` (trừ khi Manager force assign).
 3.  **Business Rules**:
@@ -248,18 +250,18 @@
 
 ### B03 Tạo Group (Quán)
 - Backend: POST /api/v1/groups; người tạo auto MANAGER; created_by liên kết; chỉ người đăng nhập.
-- Dữ liệu: Group status ACTIVE; audit fields.
+- Dữ liệu: Group status ACTIVE; sinh `joinCode` 6 ký tự in hoa + số, đảm bảo unique.
 - Frontend: Form tạo group; danh sách group của tôi.
-- Kiểm thử: Tạo thành công; vai trò MANAGER được gán.
+- Kiểm thử: Tạo thành công; vai trò MANAGER được gán; joinCode có độ dài 6.
 
 ### B04 Join Group
-- Backend: POST /api/v1/groups/{id}/join -> GroupMember PENDING; chống trùng (user_id, group_id).
+- Backend: POST /api/v1/groups/{id}/join hoặc POST /api/v1/groups/join-by-code -> GroupMember PENDING; chống trùng (user_id, group_id).
 - Dữ liệu: Composite unique cho GroupMember; khởi tạo PENDING.
-- Frontend: Nút tham gia; hiển thị trạng thái yêu cầu.
-- Kiểm thử: Không tạo trùng; chuyển trạng thái đúng.
+- Frontend: Nút tham gia bằng mã; hiển thị trạng thái yêu cầu.
+- Kiểm thử: Không tạo trùng; join theo mã hoạt động.
 
 ### B05 Duyệt thành viên
-- Backend: PATCH /api/v1/groups/{id}/members/{memberId} APPROVE/REJECT; chỉ MANAGER group đó.
+- Backend: GET /api/v1/groups/{id}/members/pending và PATCH /api/v1/groups/{id}/members/{memberId} (APPROVE/REJECT); chỉ MANAGER group đó.
 - Bảo mật: Check role MANAGER; multi-tenancy theo group_id.
 - Frontend: Bảng yêu cầu PENDING; duyệt/từ chối kèm lý do.
 - Kiểm thử: Duyệt; từ chối; bảo vệ quyền.
@@ -389,3 +391,24 @@
 - Dữ liệu: Aggregation, indexes tối ưu query.
 - Frontend: Chart line/bar, filter range; drilldown.
 - Kiểm thử: Đúng số liệu; hiệu năng với dữ liệu lớn.
+
+---
+
+## VI. API ĐÃ TRIỂN KHAI (BACKEND)
+
+### 1. Auth
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/auth/register` | POST | Public | Đăng ký tài khoản mới |
+| `/api/v1/auth/login` | POST | Public | Đăng nhập, trả access token + refresh token |
+| `/api/v1/auth/refresh` | POST | Public | Refresh access token, rotate refresh token |
+| `/api/v1/auth/logout` | POST | Bearer | Đăng xuất, revoke refresh token active |
+
+### 2. Group
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups` | POST | Bearer | Tạo group, auto assign MANAGER, sinh joinCode |
+| `/api/v1/groups/{id}/join` | POST | Bearer | Gửi yêu cầu tham gia group theo ID |
+| `/api/v1/groups/join-by-code` | POST | Bearer | Gửi yêu cầu tham gia group theo joinCode |
+| `/api/v1/groups/{id}/members/pending` | GET | Bearer (MANAGER) | Lấy danh sách thành viên chờ duyệt |
+| `/api/v1/groups/{id}/members/{memberId}` | PATCH | Bearer (MANAGER) | Duyệt hoặc từ chối thành viên (`APPROVE`/`REJECT`) |
