@@ -1,0 +1,9 @@
+$kind: collection
+variables:
+  baseUrl: http://localhost:8080
+  accessToken: ""
+  refreshToken: ""
+  groupId: ""
+  memberAccessToken: ""
+  groupJoinCode: ""
+  pendingMemberId: ""

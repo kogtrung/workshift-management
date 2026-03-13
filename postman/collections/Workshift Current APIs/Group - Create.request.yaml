@@ -1,0 +1,24 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/groups"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{accessToken}}
+body:
+  type: text
+  content: |-
+    {
+      "name": "Cafe Downtown",
+      "description": "Nhom quan trung tam"
+    }
+scripts:
+  - type: afterResponse
+    code: >-
+      const jsonData = pm.response.json();
+
+      if (jsonData && jsonData.data && jsonData.data.id) {
+        pm.collectionVariables.set('groupId', String(jsonData.data.id));
+        if (jsonData.data.joinCode) pm.collectionVariables.set('groupJoinCode', jsonData.data.joinCode);
+      }
+    language: text/javascript
+order: 4000

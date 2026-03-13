@@ -1,11 +1,47 @@
 # PHÂN CHIA NHIỆM VỤ DỰ ÁN (TASK ASSIGNMENT)
 
-> **Mục tiêu**: Chia đều 22 chức năng nghiệp vụ (B01-B22) cho 5 thành viên.
+> **Mục tiêu**: Chia đều các chức năng nghiệp vụ theo spec hiện tại (B01-B26, có mở rộng B02.1/B02.2).
 > **Tiêu chí**: Mỗi người làm tối thiểu 4 chức năng, đảm bảo tính liên kết module.
 
 ---
 
-## I. DANH SÁCH NHIỆM VỤ THEO THÀNH VIÊN
+## I. LỘ TRÌNH THEO GIAI ĐOẠN (ROADMAP CẬP NHẬT)
+
+### Giai đoạn 0: Foundation & Security Baseline
+- Mục tiêu: dựng khung backend/frontend, cấu hình DB, BaseEntity, Security stateless.
+- Kết quả mong đợi: hệ thống chạy được local, có profile test, có cấu trúc module rõ ràng.
+- Trạng thái: **Đã triển khai**.
+
+### Giai đoạn 1: Auth & Session
+- Phạm vi: B01, B02, B02.1, B02.2.
+- API chính: register, login, refresh, logout.
+- Kết quả mong đợi: access token + refresh token hoạt động, refresh rotation, logout revoke refresh token.
+- Trạng thái: **Đã triển khai**.
+
+### Giai đoạn 2: Group Core & Membership
+- Phạm vi: B03, B04, B05.
+- API chính: tạo group (có joinCode 6 ký tự), join-by-id/join-by-code, pending members, approve/reject member.
+- Kết quả mong đợi: hoàn chỉnh luồng tạo group và onboarding thành viên.
+- Trạng thái: **Đã triển khai**.
+
+### Giai đoạn 3: Shift Configuration
+- Phạm vi: B06, B07, B09, B10.
+- Kết quả mong đợi: manager cấu hình vị trí, ca mẫu, ca làm việc, nhu cầu nhân sự.
+- Trạng thái: **Chưa triển khai**.
+
+### Giai đoạn 4: Member Scheduling Flow
+- Phạm vi: B08, B11, B12, B13, B19.
+- Kết quả mong đợi: member khai báo lịch rảnh, xem ca phù hợp, đăng ký/hủy ca, xem lịch cá nhân.
+- Trạng thái: **Chưa triển khai**.
+
+### Giai đoạn 5: Manager & Advanced Operations
+- Phạm vi: B14, B15, B16, B17, B18, B20, B21, B22, B24, B25, B26.
+- Kết quả mong đợi: duyệt phân ca, gợi ý, khóa ca, đổi ca, payroll, báo cáo hoạt động.
+- Trạng thái: **Chưa triển khai**.
+
+---
+
+## II. DANH SÁCH NHIỆM VỤ THEO THÀNH VIÊN
 
 ### 👨‍💻 Thành viên 1: Auth & Group Core (Nền tảng & Quản trị)
 *Người đi đầu (Pioneer) - Dựng khung dự án*
@@ -19,7 +55,7 @@
     - `feat(user): add user entity and repository`
 *   *Lưu ý*: Tạo `BaseEntity` và `User` entity trước để các thành viên khác sử dụng.
 
-**Nhiệm vụ (Tasks) - 5 Features:**
+**Nhiệm vụ (Tasks) - 6 Features:**
 1.  **[B01] Đăng ký tài khoản**: API đăng ký, hash password, validate email/username.
     *   *Branch*: `feature/auth-register`
     *   *Commits*: `feat(auth): add register endpoint`, `test(auth): add unit test for register`
@@ -27,16 +63,19 @@
 2.  **[B02] Đăng nhập**: API login, sinh JWT token, cấu hình Security.
     *   *Branch*: `feature/auth-login`
     *   *Commits*: `feat(auth): implement login with jwt`, `chore(security): config security filter chain`
-3.  **[B03] Tạo Group (Quán)**: API tạo group, auto-assign Manager.
+3.  **[B02.1 + B02.2] Session Flow**: API refresh token + logout revoke refresh token.
+    *   *Branch*: `feature/auth-session`
+    *   *Commits*: `feat(auth): add refresh token rotation`, `feat(auth): revoke refresh token on logout`
+4.  **[B03] Tạo Group (Quán)**: API tạo group, auto-assign Manager, sinh joinCode.
     *   *Branch*: `feature/group-create`
-    *   *Commits*: `feat(group): add create group api`, `fix(group): auto assign creator as manager`
+    *   *Commits*: `feat(group): add create group api`, `feat(group): generate join code for group`
     *   *Entity*: Tạo `Group`, `GroupMember`.
-4.  **[B04] Join Group**: API gửi request tham gia group.
+5.  **[B04] Join Group**: API gửi request tham gia group theo ID hoặc theo mã.
     *   *Branch*: `feature/group-join`
-    *   *Commits*: `feat(group): add join request api`
-5.  **[B05] Duyệt thành viên**: API duyệt/từ chối request tham gia.
+    *   *Commits*: `feat(group): add join request api`, `feat(group): add join by code api`
+6.  **[B05] Duyệt thành viên**: API xem pending và duyệt/từ chối request tham gia.
     *   *Branch*: `feature/group-approval`
-    *   *Commits*: `feat(group): add member approval logic`
+    *   *Commits*: `feat(group): add pending member list api`, `feat(group): add member approval logic`
 
 **Quy trình Git (Workflow):**
 1.  **Khởi tạo (Setup Core)**: Clone repo -> Tạo khung project -> Push `feature/project-init` -> Merge vào `develop`.
@@ -169,7 +208,7 @@
 
 ---
 
-## II. QUY TRÌNH LÀM VIỆC VỚI GIT (GIT WORKFLOW)
+## III. QUY TRÌNH LÀM VIỆC VỚI GIT (GIT WORKFLOW)
 
 Để đảm bảo code chất lượng và tránh xung đột khi 5 người cùng làm việc, chúng ta tuân thủ quy trình sau:
 
@@ -235,12 +274,12 @@ Trước khi push code, hãy tự kiểm tra:
 
 ---
 
-## III. DANH SÁCH TÍNH NĂNG & TIẾN ĐỘ (PRIORITY MATRIX)
+## IV. DANH SÁCH TÍNH NĂNG & TIẾN ĐỘ (PRIORITY MATRIX)
 
 | Priority | Feature | Owner | Est. Time | Acceptance Criteria (AC) |
 | :--- | :--- | :--- | :--- | :--- |
-| **P0 (Gấp)** | **B01, B02 (Auth)** | TV1 | 3 ngày | Login/Register thành công, trả về JWT chuẩn. |
-| **P0 (Gấp)** | **B03, B04 (Group)** | TV1 | 2 ngày | Tạo được Group, Join được Group. |
+| **P0 (Gấp)** | **B01, B02, B02.1, B02.2 (Auth)** | TV1 | 4 ngày | Login/Register/Refresh/Logout hoạt động ổn định. |
+| **P0 (Gấp)** | **B03, B04, B05 (Group)** | TV1 | 3 ngày | Tạo group có joinCode, join và duyệt thành viên hoàn chỉnh. |
 | **P1 (Cao)** | **B06, B07 (Config)** | TV2 | 3 ngày | Tạo được Vị trí, Ca mẫu. |
 | **P1 (Cao)** | **B08 (Avail)** | TV3 | 2 ngày | Member lưu được lịch rảnh. |
 | **P1 (Cao)** | **B09 (Shift)** | TV2 | 3 ngày | Manager tạo được lịch làm việc từ template. |
@@ -250,7 +289,7 @@ Trước khi push code, hãy tự kiểm tra:
 
 ---
 
-## IV. QUY TRÌNH PHÁT TRIỂN & DEPLOYMENT (CI/CD)
+## V. QUY TRÌNH PHÁT TRIỂN & DEPLOYMENT (CI/CD)
 
 ### 1. Môi trường (Environments)
 *   **Local**: Môi trường phát triển trên máy cá nhân của từng thành viên.
@@ -277,7 +316,7 @@ Trước khi push code, hãy tự kiểm tra:
 
 ---
 
-## V. CÔNG CỤ HỖ TRỢ (TOOLS)
+## VI. CÔNG CỤ HỖ TRỢ (TOOLS)
 *   **IDE**: IntelliJ IDEA (Backend), VS Code (Frontend).
 *   **API Test**: Postman (Shared Collection).
 *   **Database**: MySQL Workbench / DBeaver.

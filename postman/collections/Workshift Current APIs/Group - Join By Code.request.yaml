@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/groups/join-by-code"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{memberAccessToken}}
+body:
+  type: text
+  content: |-
+    {
+      "joinCode": "{{groupJoinCode}}"
+    }
+order: 7000

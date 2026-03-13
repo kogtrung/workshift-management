@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/groups/{{groupId}}/members/pending"
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+scripts:
+  - type: afterResponse
+    code: >-
+      const jsonData = pm.response.json();
+
+      if (jsonData && jsonData.data && Array.isArray(jsonData.data) &&
+      jsonData.data.length > 0) {
+        pm.collectionVariables.set('pendingMemberId', String(jsonData.data[0].memberId));
+      }
+    language: text/javascript
+order: 8000
