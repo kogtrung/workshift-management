@@ -16,6 +16,8 @@ import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.User;
 import com.workshift.backend.common.exception.BusinessException;
 import com.workshift.backend.group.dto.CreateGroupRequest;
+import com.workshift.backend.group.dto.GroupMemberReviewAction;
+import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.UserRepository;
@@ -147,5 +149,77 @@ class GroupServiceTest {
 		assertEquals(savedMember.getId(), response.userId());
 		assertEquals(GroupRole.MEMBER.name(), response.role());
 		assertEquals(GroupMemberStatus.PENDING.name(), response.status());
+	}
+
+	@Test
+	void reviewMember_shouldApprovePendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_review_01");
+		manager.setEmail("manager_review_01@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Review 01");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Review", "Nhóm để test review")
+		);
+
+		User member = new User();
+		member.setUsername("member_review_01");
+		member.setEmail("member_review_01@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Review 01");
+		User savedMember = userRepository.save(member);
+
+		groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+		var pendingMember = groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedMember.getId()).orElseThrow();
+
+		var reviewResponse = groupService.reviewMember(
+				savedManager.getUsername(),
+				createdGroup.id(),
+				pendingMember.getId(),
+				new ReviewGroupMemberRequest(GroupMemberReviewAction.APPROVE)
+		);
+
+		assertEquals(GroupMemberStatus.APPROVED.name(), reviewResponse.status());
+
+		var updatedMember = groupMemberRepository.findById(pendingMember.getId()).orElseThrow();
+		assertEquals(GroupMemberStatus.APPROVED, updatedMember.getStatus());
+		assertNotNull(updatedMember.getJoinedAt());
+	}
+
+	@Test
+	void reviewMember_shouldRejectPendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_review_02");
+		manager.setEmail("manager_review_02@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Review 02");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Review Reject", "Nhóm để test reject")
+		);
+
+		User member = new User();
+		member.setUsername("member_review_02");
+		member.setEmail("member_review_02@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Review 02");
+		User savedMember = userRepository.save(member);
+
+		groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+		var pendingMember = groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedMember.getId()).orElseThrow();
+
+		var reviewResponse = groupService.reviewMember(
+				savedManager.getUsername(),
+				createdGroup.id(),
+				pendingMember.getId(),
+				new ReviewGroupMemberRequest(GroupMemberReviewAction.REJECT)
+		);
+
+		assertEquals(GroupMemberStatus.REJECTED.name(), reviewResponse.status());
 	}
 }

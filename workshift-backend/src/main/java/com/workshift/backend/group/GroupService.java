@@ -1,6 +1,7 @@
 package com.workshift.backend.group;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -17,7 +18,9 @@ import com.workshift.backend.domain.GroupStatus;
 import com.workshift.backend.domain.User;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
+import com.workshift.backend.group.dto.GroupMemberResponse;
 import com.workshift.backend.group.dto.JoinGroupResponse;
+import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.UserRepository;
@@ -92,6 +95,57 @@ public class GroupService {
 		return joinGroupInternal(user, group);
 	}
 
+	@Transactional(readOnly = true)
+	public List<GroupMemberResponse> getPendingMembers(String username, Long groupId) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+		validateManagerPermission(groupId, manager.getId());
+
+		return groupMemberRepository.findAllByGroupIdAndStatus(groupId, GroupMemberStatus.PENDING)
+				.stream()
+				.map(member -> new GroupMemberResponse(
+						member.getId(),
+						member.getGroup().getId(),
+						member.getUser().getId(),
+						member.getRole().name(),
+						member.getStatus().name()
+				))
+				.toList();
+	}
+
+	@Transactional
+	public GroupMemberResponse reviewMember(String username, Long groupId, Long memberId, ReviewGroupMemberRequest request) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+		validateManagerPermission(groupId, manager.getId());
+
+		GroupMember groupMember = groupMemberRepository.findByIdAndGroupId(memberId, groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy thành viên trong group"));
+
+		if (groupMember.getStatus() != GroupMemberStatus.PENDING) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Chỉ có thể duyệt yêu cầu ở trạng thái PENDING");
+		}
+
+		switch (request.action()) {
+			case APPROVE -> {
+				groupMember.setStatus(GroupMemberStatus.APPROVED);
+				groupMember.setJoinedAt(Instant.now());
+			}
+			case REJECT -> {
+				groupMember.setStatus(GroupMemberStatus.REJECTED);
+				groupMember.setJoinedAt(null);
+			}
+		}
+
+		return new GroupMemberResponse(
+				groupMember.getId(),
+				groupMember.getGroup().getId(),
+				groupMember.getUser().getId(),
+				groupMember.getRole().name(),
+				groupMember.getStatus().name()
+		);
+	}
+
 	private JoinGroupResponse joinGroupInternal(User user, Group group) {
 		if (group.getStatus() != GroupStatus.ACTIVE) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Group hiện không hoạt động");
@@ -115,6 +169,14 @@ public class GroupService {
 				groupMember.getRole().name(),
 				groupMember.getStatus().name()
 		);
+	}
+
+	private void validateManagerPermission(Long groupId, Long userId) {
+		GroupMember managerMembership = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc group này"));
+		if (managerMembership.getRole() != GroupRole.MANAGER || managerMembership.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Bạn không có quyền duyệt thành viên");
+		}
 	}
 
 	private String generateUniqueJoinCode() {
