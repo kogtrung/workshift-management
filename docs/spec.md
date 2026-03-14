@@ -2,8 +2,8 @@
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
 >
-> Phiên bản: 1.3 (Cập nhật API Group B03-B05)
-> Ngày cập nhật: 2026-03-13
+> Phiên bản: 1.6 (Điều chỉnh Group Audit triển khai sau B05)
+> Ngày cập nhật: 2026-03-14
 
 ---
 
@@ -18,6 +18,7 @@
 | **B03** | **Tạo Group (Quán)** | Manager | User tạo group mới. Người tạo tự động trở thành MANAGER của group đó và hệ thống sinh `joinCode` 6 ký tự. | Input: Name, Description<br>Output: Group Info, Join Code |
 | **B04** | **Join Group** | User | User gửi yêu cầu tham gia vào group qua ID hoặc `joinCode`. Trạng thái: `PENDING`. | Input: Group ID hoặc Join Code<br>Output: Request Status |
 | **B05** | **Duyệt thành viên** | Manager | Manager xem danh sách yêu cầu `PENDING`. Duyệt (`APPROVED`) hoặc từ chối (`REJECTED`). | Input: Member ID, Action<br>Output: Updated Status |
+| **B05.1** | **Nhật ký Vận hành Group (Manager Audit)** | Manager | Ghi nhận và truy vấn đầy đủ hoạt động trong group: ai thao tác gì, trên đối tượng nào, thay đổi trước/sau, thời điểm, khung ngày/tháng. | Input: Group ID, Filters, Date Range<br>Output: Audit Logs, Daily/Monthly Summary |
 | **B06** | **Quản lý Vị trí** | Manager | Định nghĩa các vị trí làm việc trong quán (VD: Phục vụ, Pha chế, Bảo vệ). | Input: Name<br>Output: Position ID |
 | **B07** | **Cấu hình Ca Mẫu (Shift Template)** | Manager | Tạo các khung giờ làm việc mẫu (VD: Ca Sáng 7-12h, Ca Chiều 12-17h). Giúp tạo lịch nhanh hơn. | Input: Name, Start, End<br>Output: Template ID |
 | **B08** | **Khai báo Lịch rảnh** | Member | Member khai báo khung giờ rảnh theo thứ trong tuần (T2-CN). Hệ thống sẽ so khớp với giờ của Ca để gợi ý. | Input: Day, Start, End<br>Output: Availability ID |
@@ -35,7 +36,7 @@
 | **B20** | **Khóa Ca (Lock)** | System | Tự động hoặc Manager thủ công chuyển trạng thái ca sang `LOCKED` (không cho sửa đổi). | Input: Shift ID<br>Output: Status LOCKED |
 | **B21** | **Yêu cầu Đổi ca** | Member | Member muốn đổi ca đã `APPROVED` sang một ca khác (hoặc chỉ xin hủy có lý do đặc biệt). | Input: From Shift, To Shift<br>Output: Request PENDING |
 | **B22** | **Duyệt Đổi ca** | Manager | Manager xem xét yêu cầu đổi. Nếu duyệt: Hủy ca cũ, Đăng ký ca mới (nếu có). | Input: Request ID, Action<br>Output: Updated Regs |
-| **B23** | **Quản lý Hệ thống (Admin)** | Admin | Quản trị toàn hệ thống: Xem danh sách User, Group; Khóa tài khoản/Group vi phạm. | Input: Action, Target ID<br>Output: Updated Status |
+| **B23** | **Quản lý Hệ thống (Admin)** | Admin | Quản trị toàn hệ thống: quản lý user/group, theo dõi sức khỏe hệ thống theo ngày/tháng, xử lý cảnh báo vận hành, và lưu audit thao tác quản trị. | Input: Action, Target ID, Date Range<br>Output: Updated Status, Admin Dashboard Metrics |
 | **B24** | **Cấu hình Lương** | Manager | Thiết lập mức lương theo giờ cho từng Vị trí hoặc từng Nhân viên. | Input: Position/User, Rate<br>Output: Salary Config ID |
 | **B25** | **Xem Bảng lương (Payroll)** | Manager | Xem thống kê tổng giờ làm và lương dự kiến của nhân viên theo tháng. | Input: Month, Year<br>Output: Payroll Report |
 | **B26** | **Báo cáo Hoạt động (Performance Report)** | Manager | Thống kê số ca, tổng giờ làm theo tuần/tháng để so sánh hiệu suất. | Input: Date Range<br>Output: Chart/Table Data |
@@ -162,6 +163,22 @@
 | `hourly_rate` | Decimal | Min 0 | Mức lương theo giờ |
 | `effective_date`| Date | Not Null | Ngày bắt đầu áp dụng |
 
+### 12. GroupAuditLog (Nhật ký vận hành Group) - Mới
+| Field | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID/Long | PK | ID bản ghi log |
+| `group_id` | Group ID | FK, Not Null | Group phát sinh sự kiện |
+| `actor_user_id` | User ID | FK, Not Null | Người thực hiện thao tác |
+| `actor_role` | Enum | MANAGER, MEMBER, SYSTEM | Vai trò lúc thao tác |
+| `action_type` | String | Not Null, Indexed | Mã hành động (VD: REGISTRATION_APPROVED) |
+| `entity_type` | String | Not Null | Loại đối tượng bị tác động (GROUP_MEMBER, SHIFT, REGISTRATION, ...) |
+| `entity_id` | UUID/Long | Not Null | ID đối tượng bị tác động |
+| `occurred_at` | DateTime | Not Null, Indexed | Thời điểm xảy ra |
+| `summary` | String | Not Null | Mô tả ngắn cho UI timeline |
+| `before_data` | JSON | Nullable | Dữ liệu trước thay đổi |
+| `after_data` | JSON | Nullable | Dữ liệu sau thay đổi |
+| `metadata` | JSON | Nullable | Thông tin phụ (ip, user-agent, request-id, shift date/time...) |
+
 ---
 
 ## III. LUỒNG NGƯỜI DÙNG (USER FLOW)
@@ -199,6 +216,20 @@
     *   Vào menu "Yêu cầu đổi ca".
     *   Xem lý do -> Duyệt (Hệ thống tự động cập nhật lại lịch) hoặc Từ chối.
 
+### 3. Luồng Quản trị hệ thống (ADMIN)
+1.  **Đăng nhập Admin** -> Vào trang "System Admin Dashboard".
+2.  **Theo dõi vận hành ngày**:
+    *   Xem số user active trong ngày, số login thất bại, số token refresh bất thường, số group bị report.
+    *   Xem danh sách cảnh báo mức `HIGH` cần xử lý ngay.
+3.  **Theo dõi vận hành tháng**:
+    *   Xem tăng trưởng user/group theo tháng.
+    *   Xem tỷ lệ user bị khóa/mở khóa, xu hướng đăng nhập thất bại, tần suất cảnh báo.
+4.  **Quản trị đối tượng hệ thống**:
+    *   Tìm kiếm user/group theo trạng thái.
+    *   Khóa/mở tài khoản user, khóa/mở group vi phạm.
+5.  **Kiểm soát thay đổi**:
+    *   Tất cả hành động quản trị được ghi audit (ai làm, lúc nào, tác động lên đối tượng nào, trạng thái trước/sau).
+
 ---
 
 ## IV. NGUYÊN TẮC KỸ THUẬT & RÀNG BUỘC (CONSTRAINTS)
@@ -218,6 +249,16 @@
     *   Refresh token được lưu hash (`SHA-256`) tại DB và có trạng thái revoke.
     *   Khi gọi refresh thành công, refresh token cũ bị revoke và phát cặp token mới (rotation).
     *   Logout thực hiện revoke các refresh token active của user.
+5.  **Admin Governance Rules**:
+    *   Chỉ `global_role = ADMIN` mới truy cập các API quản trị hệ thống.
+    *   Tất cả thao tác khóa/mở user/group phải ghi audit trail.
+    *   Dashboard admin bắt buộc có số liệu theo ngày và theo tháng để theo dõi ổn định hệ thống.
+    *   Số liệu tổng hợp theo thời gian phải hỗ trợ timezone thống nhất (mặc định Asia/Ho_Chi_Minh).
+6.  **Group Audit Rules**:
+    *   Manager chỉ xem được audit logs của group mình có quyền `MANAGER` và trạng thái `APPROVED`.
+    *   Các sự kiện quan trọng bắt buộc ghi log: join/approve/reject member, tạo/sửa/khóa ca, đăng ký/duyệt/hủy ca, gán nhân viên.
+    *   Audit log phải lưu `actor`, `action_type`, `entity`, `occurred_at`, và cặp `before_data`/`after_data` khi có thay đổi trạng thái.
+    *   Truy vấn audit bắt buộc hỗ trợ filter theo ngày, action type, actor, entity và phân trang.
 
 ---
 *Tài liệu này dùng làm căn cứ chính xác nhất để phát triển Database và API.*
@@ -369,10 +410,26 @@
 - Kiểm thử: Luồng approve/reject; đồng bộ lịch.
 
 ### B23 Quản lý Hệ thống (Admin)
-- Backend: Admin endpoints list users, groups; khóa/bỏ khóa user/group; guard global_role ADMIN.
-- Dữ liệu: status chuyển BANNED/INACTIVE; log audit.
-- Frontend: Trang Admin: bảng, khóa/mở.
-- Kiểm thử: Quyền admin; tác động đúng đối tượng.
+- Backend:
+  - `GET /api/v1/admin/users` (lọc theo trạng thái, từ khóa, phân trang)
+  - `PATCH /api/v1/admin/users/{id}/status` (ACTIVE/BANNED)
+  - `GET /api/v1/admin/groups` (lọc theo trạng thái, từ khóa, phân trang)
+  - `PATCH /api/v1/admin/groups/{id}/status` (ACTIVE/INACTIVE)
+  - `GET /api/v1/admin/metrics/daily?date=...`
+  - `GET /api/v1/admin/metrics/monthly?month=...&year=...`
+  - `GET /api/v1/admin/audit-logs?from=...&to=...`
+- Dữ liệu: status chuyển BANNED/INACTIVE; log audit đầy đủ before/after + actor + timestamp.
+- Frontend: Trang Admin gồm dashboard chỉ số ngày/tháng, bảng user/group, lịch sử audit.
+- Kiểm thử: Quyền admin; tác động đúng đối tượng; tính đúng chỉ số daily/monthly.
+
+### B05.1 Nhật ký Vận hành Group (Manager Audit)
+- Backend:
+  - `GET /api/v1/groups/{id}/audit-logs?from=...&to=...&actionType=...&actorUserId=...&entityType=...&entityId=...&page=...`
+  - `GET /api/v1/groups/{id}/audit-logs/summary/daily?date=...`
+  - `GET /api/v1/groups/{id}/audit-logs/summary/monthly?month=...&year=...`
+- Dữ liệu: Bảng `group_audit_logs` + index `(group_id, occurred_at)` và `(group_id, action_type, occurred_at)`.
+- Frontend: Màn timeline hoạt động của group, bộ lọc nhanh theo ngày/sự kiện/thành viên, widget summary ngày-tháng.
+- Kiểm thử: Manager đúng quyền; filter đúng; phân trang đúng; có log cho toàn bộ thao tác trọng yếu.
 
 ### B24 Cấu hình Lương
 - Backend: CRUD /api/v1/groups/{id}/salary-configs theo vị trí hoặc người dùng; hiệu lực effective_date.
@@ -412,3 +469,40 @@
 | `/api/v1/groups/join-by-code` | POST | Bearer | Gửi yêu cầu tham gia group theo joinCode |
 | `/api/v1/groups/{id}/members/pending` | GET | Bearer (MANAGER) | Lấy danh sách thành viên chờ duyệt |
 | `/api/v1/groups/{id}/members/{memberId}` | PATCH | Bearer (MANAGER) | Duyệt hoặc từ chối thành viên (`APPROVE`/`REJECT`) |
+
+### 3. Admin (Kế hoạch triển khai)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/admin/users` | GET | Bearer (ADMIN) | Danh sách user toàn hệ thống, hỗ trợ lọc/phân trang |
+| `/api/v1/admin/users/{id}/status` | PATCH | Bearer (ADMIN) | Khóa/mở user (`ACTIVE`/`BANNED`) |
+| `/api/v1/admin/groups` | GET | Bearer (ADMIN) | Danh sách group toàn hệ thống, hỗ trợ lọc/phân trang |
+| `/api/v1/admin/groups/{id}/status` | PATCH | Bearer (ADMIN) | Khóa/mở group (`ACTIVE`/`INACTIVE`) |
+| `/api/v1/admin/metrics/daily` | GET | Bearer (ADMIN) | Chỉ số vận hành theo ngày |
+| `/api/v1/admin/metrics/monthly` | GET | Bearer (ADMIN) | Chỉ số vận hành theo tháng |
+| `/api/v1/admin/audit-logs` | GET | Bearer (ADMIN) | Lịch sử thao tác quản trị hệ thống |
+
+### 4. Group Manager Audit (Kế hoạch triển khai)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{id}/audit-logs` | GET | Bearer (MANAGER) | Nhật ký chi tiết hoạt động trong group (filter + phân trang) |
+| `/api/v1/groups/{id}/audit-logs/summary/daily` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo ngày |
+| `/api/v1/groups/{id}/audit-logs/summary/monthly` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo tháng |
+
+---
+
+## VII. BẢNG CHI TIẾT ACTION TYPE CHO GROUP AUDIT
+
+| Action Type | Khi phát sinh | Entity Type | Before/After yêu cầu |
+| :--- | :--- | :--- | :--- |
+| `GROUP_MEMBER_JOIN_REQUESTED` | Member gửi yêu cầu vào group | GROUP_MEMBER | `after_data` |
+| `GROUP_MEMBER_APPROVED` | Manager duyệt thành viên | GROUP_MEMBER | `before_data` + `after_data` |
+| `GROUP_MEMBER_REJECTED` | Manager từ chối thành viên | GROUP_MEMBER | `before_data` + `after_data` |
+| `SHIFT_CREATED` | Manager tạo ca | SHIFT | `after_data` |
+| `SHIFT_UPDATED` | Manager sửa ca | SHIFT | `before_data` + `after_data` |
+| `SHIFT_LOCKED` | Manager/System khóa ca | SHIFT | `before_data` + `after_data` |
+| `REGISTRATION_CREATED` | Member đăng ký ca | REGISTRATION | `after_data` |
+| `REGISTRATION_APPROVED` | Manager duyệt đăng ký ca | REGISTRATION | `before_data` + `after_data` |
+| `REGISTRATION_REJECTED` | Manager từ chối đăng ký ca | REGISTRATION | `before_data` + `after_data` |
+| `REGISTRATION_CANCELLED` | Member hủy đăng ký ca | REGISTRATION | `before_data` + `after_data` |
+| `MANAGER_ASSIGNED_MEMBER` | Manager gán nhân viên thủ công | REGISTRATION | `after_data` |
+| `SHIFT_REQUIREMENT_UPDATED` | Manager cập nhật nhu cầu nhân sự | SHIFT_REQUIREMENT | `before_data` + `after_data` |

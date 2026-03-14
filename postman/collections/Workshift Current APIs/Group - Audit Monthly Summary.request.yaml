@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/groups/{{groupId}}/audit-logs/summary/monthly?month={{auditMonth}}&year={{auditYear}}"
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+order: 10200

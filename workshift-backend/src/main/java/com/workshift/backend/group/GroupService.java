@@ -3,6 +3,7 @@ package com.workshift.backend.group;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.http.HttpStatus;
@@ -11,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.workshift.backend.common.exception.BusinessException;
 import com.workshift.backend.domain.Group;
+import com.workshift.backend.domain.GroupAuditActionType;
+import com.workshift.backend.domain.GroupAuditActorRole;
+import com.workshift.backend.domain.GroupAuditEntityType;
 import com.workshift.backend.domain.GroupMember;
 import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
@@ -31,15 +35,18 @@ public class GroupService {
 	private final GroupRepository groupRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final UserRepository userRepository;
+	private final GroupAuditService groupAuditService;
 
 	public GroupService(
 			GroupRepository groupRepository,
 			GroupMemberRepository groupMemberRepository,
-			UserRepository userRepository
+			UserRepository userRepository,
+			GroupAuditService groupAuditService
 	) {
 		this.groupRepository = groupRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.userRepository = userRepository;
+		this.groupAuditService = groupAuditService;
 	}
 
 	@Transactional
@@ -63,6 +70,23 @@ public class GroupService {
 		managerMember.setStatus(GroupMemberStatus.APPROVED);
 		managerMember.setJoinedAt(Instant.now());
 		groupMemberRepository.save(managerMember);
+
+		groupAuditService.recordEvent(
+				savedGroup,
+				creator,
+				GroupAuditActorRole.MANAGER,
+				GroupAuditActionType.GROUP_CREATED,
+				GroupAuditEntityType.GROUP,
+				savedGroup.getId(),
+				"Tạo group mới",
+				null,
+				Map.of(
+						"groupId", savedGroup.getId(),
+						"name", savedGroup.getName(),
+						"joinCode", savedGroup.getJoinCode()
+				),
+				Map.of("source", "create_group")
+		);
 
 		return new CreateGroupResponse(
 				savedGroup.getId(),
@@ -126,6 +150,8 @@ public class GroupService {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Chỉ có thể duyệt yêu cầu ở trạng thái PENDING");
 		}
 
+		GroupMemberStatus previousStatus = groupMember.getStatus();
+		Instant previousJoinedAt = groupMember.getJoinedAt();
 		switch (request.action()) {
 			case APPROVE -> {
 				groupMember.setStatus(GroupMemberStatus.APPROVED);
@@ -136,6 +162,30 @@ public class GroupService {
 				groupMember.setJoinedAt(null);
 			}
 		}
+
+		groupAuditService.recordEvent(
+				groupMember.getGroup(),
+				manager,
+				GroupAuditActorRole.MANAGER,
+				request.action().name().equals("APPROVE")
+						? GroupAuditActionType.GROUP_MEMBER_APPROVED
+						: GroupAuditActionType.GROUP_MEMBER_REJECTED,
+				GroupAuditEntityType.GROUP_MEMBER,
+				groupMember.getId(),
+				"Cập nhật trạng thái thành viên",
+				Map.of(
+						"status", previousStatus.name(),
+						"joinedAt", previousJoinedAt == null ? "" : previousJoinedAt.toString()
+				),
+				Map.of(
+						"status", groupMember.getStatus().name(),
+						"joinedAt", groupMember.getJoinedAt() == null ? "" : groupMember.getJoinedAt().toString()
+				),
+				Map.of(
+						"targetUserId", groupMember.getUser().getId(),
+						"action", request.action().name()
+				)
+		);
 
 		return new GroupMemberResponse(
 				groupMember.getId(),
@@ -162,6 +212,23 @@ public class GroupService {
 		groupMember.setStatus(GroupMemberStatus.PENDING);
 		groupMember.setJoinedAt(null);
 		groupMemberRepository.save(groupMember);
+
+		groupAuditService.recordEvent(
+				group,
+				user,
+				GroupAuditActorRole.MEMBER,
+				GroupAuditActionType.GROUP_MEMBER_JOIN_REQUESTED,
+				GroupAuditEntityType.GROUP_MEMBER,
+				groupMember.getId(),
+				"Gửi yêu cầu tham gia group",
+				null,
+				Map.of(
+						"groupId", group.getId(),
+						"userId", user.getId(),
+						"status", groupMember.getStatus().name()
+				),
+				Map.of("source", "join_group")
+		);
 
 		return new JoinGroupResponse(
 				group.getId(),

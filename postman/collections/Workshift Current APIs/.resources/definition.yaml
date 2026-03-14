@@ -7,3 +7,8 @@ variables:
   memberAccessToken: ""
   groupJoinCode: ""
   pendingMemberId: ""
+  auditFrom: "2026-03-01"
+  auditTo: "2026-03-31"
+  auditDate: "2026-03-14"
+  auditMonth: "3"
+  auditYear: "2026"
