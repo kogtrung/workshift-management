@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/groups/{{groupId}}/audit-logs?from={{auditFrom}}&to={{auditTo}}&page=0&size=20"
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+order: 10000
