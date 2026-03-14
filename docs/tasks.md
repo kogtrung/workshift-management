@@ -1,6 +1,6 @@
 # PHÂN CHIA NHIỆM VỤ DỰ ÁN (TASK ASSIGNMENT)
 
-> **Mục tiêu**: Chia đều các chức năng nghiệp vụ theo spec hiện tại (B01-B26, có mở rộng B02.1/B02.2).
+> **Mục tiêu**: Chia đều các chức năng nghiệp vụ theo spec hiện tại (B01-B26, có mở rộng B02.1/B02.2/B05.1).
 > **Tiêu chí**: Mỗi người làm tối thiểu 4 chức năng, đảm bảo tính liên kết module.
 
 ---
@@ -19,10 +19,10 @@
 - Trạng thái: **Đã triển khai**.
 
 ### Giai đoạn 2: Group Core & Membership
-- Phạm vi: B03, B04, B05.
-- API chính: tạo group (có joinCode 6 ký tự), join-by-id/join-by-code, pending members, approve/reject member.
+- Phạm vi: B03, B04, B05, B05.1.
+- API chính: tạo group (có joinCode 6 ký tự), join-by-id/join-by-code, pending members, approve/reject member, audit timeline theo group.
 - Kết quả mong đợi: hoàn chỉnh luồng tạo group và onboarding thành viên.
-- Trạng thái: **Đã triển khai**.
+- Trạng thái: **Đang triển khai**.
 
 ### Giai đoạn 3: Shift Configuration
 - Phạm vi: B06, B07, B09, B10.
@@ -37,6 +37,11 @@
 ### Giai đoạn 5: Manager & Advanced Operations
 - Phạm vi: B14, B15, B16, B17, B18, B20, B21, B22, B24, B25, B26.
 - Kết quả mong đợi: duyệt phân ca, gợi ý, khóa ca, đổi ca, payroll, báo cáo hoạt động.
+- Trạng thái: **Chưa triển khai**.
+
+### Giai đoạn 6: Hệ thống Admin (System Governance)
+- Phạm vi: B23.
+- Kết quả mong đợi: quản trị hệ thống tập trung (list user/group, khóa/mở user/group, dashboard chỉ số theo ngày/tháng, audit thao tác admin).
 - Trạng thái: **Chưa triển khai**.
 
 ---
@@ -55,7 +60,7 @@
     - `feat(user): add user entity and repository`
 *   *Lưu ý*: Tạo `BaseEntity` và `User` entity trước để các thành viên khác sử dụng.
 
-**Nhiệm vụ (Tasks) - 6 Features:**
+**Nhiệm vụ (Tasks) - 7 Features:**
 1.  **[B01] Đăng ký tài khoản**: API đăng ký, hash password, validate email/username.
     *   *Branch*: `feature/auth-register`
     *   *Commits*: `feat(auth): add register endpoint`, `test(auth): add unit test for register`
@@ -76,6 +81,9 @@
 6.  **[B05] Duyệt thành viên**: API xem pending và duyệt/từ chối request tham gia.
     *   *Branch*: `feature/group-approval`
     *   *Commits*: `feat(group): add pending member list api`, `feat(group): add member approval logic`
+7.  **[B05.1] Group Operational Audit (Manager)**: API timeline hoạt động group theo ngày/tháng, filter theo actor/action/entity.
+    *   *Branch*: `feature/group-audit-timeline`
+    *   *Commits*: `feat(audit): add group audit log model and query apis`, `test(audit): add manager audit access tests`
 
 **Quy trình Git (Workflow):**
 1.  **Khởi tạo (Setup Core)**: Clone repo -> Tạo khung project -> Push `feature/project-init` -> Merge vào `develop`.
@@ -179,10 +187,10 @@
 
 ---
 
-### 👨‍💻 Thành viên 5: Advanced Features (Tính năng Nâng cao & Báo cáo)
+### 👨‍💻 Thành viên 5: Advanced Features + Admin System (Tính năng Nâng cao & Quản trị hệ thống)
 *Người giải quyết bài toán khó (Algorithm) & Thống kê*
 
-**Nhiệm vụ (Tasks) - 5 Features:**
+**Nhiệm vụ (Tasks) - 6 Features:**
 1.  **[B18] Gợi ý Nhân viên**: Thuật toán tìm nhân viên phù hợp (Rảnh + Đúng vị trí + Chưa có lịch).
     *   *Branch*: `feature/algo-recommendation`
     *   *Commits*: `feat(algo): implement recommendation algorithm`, `test(algo): test recommendation logic`
@@ -199,6 +207,29 @@
 5.  **[B26] Báo cáo Hoạt động (Performance Report)**: API thống kê số ca, tổng giờ làm theo tuần/tháng (so sánh hiệu suất).
     *   *Branch*: `feature/activity-report`
     *   *Commits*: `feat(report): add activity statistics api`
+6.  **[B23] Quản lý Hệ thống (Admin)**: API quản trị user/group (list, khóa/mở), chỉ ADMIN truy cập.
+    *   *Branch*: `feature/admin-governance`
+    *   *Commits*: `feat(admin): add system governance apis`, `feat(admin): add daily monthly metrics`, `test(admin): add admin authorization tests`
+
+**Chi tiết triển khai B23 (theo phase nhỏ)**
+1.  **Admin Identity & Access**
+    *   `feature/admin-authz`
+    *   Guard `global_role=ADMIN` cho toàn bộ admin endpoints.
+2.  **Admin User Governance**
+    *   `feature/admin-users`
+    *   API list/filter/paginate users; khóa/mở user.
+3.  **Admin Group Governance**
+    *   `feature/admin-groups`
+    *   API list/filter/paginate groups; khóa/mở group.
+4.  **Admin Daily Metrics**
+    *   `feature/admin-metrics-daily`
+    *   Chỉ số vận hành theo ngày: active users, failed logins, số user/group bị khóa, số cảnh báo.
+5.  **Admin Monthly Metrics**
+    *   `feature/admin-metrics-monthly`
+    *   Chỉ số vận hành theo tháng: tăng trưởng user/group, tỷ lệ khóa tài khoản, xu hướng lỗi.
+6.  **Admin Audit Trail**
+    *   `feature/admin-audit-log`
+    *   Ghi và truy vấn audit log cho mọi thao tác admin.
 
 **Quy trình Git (Workflow):**
 1.  **Làm việc**:
@@ -208,7 +239,24 @@
 
 ---
 
-## III. QUY TRÌNH LÀM VIỆC VỚI GIT (GIT WORKFLOW)
+## III. BẢNG TRIỂN KHAI CHI TIẾT CHO ADMIN & GROUP AUDIT
+
+| Hạng mục | API/Output chính | Branch đề xuất | Điều kiện hoàn thành (DoD) |
+| :--- | :--- | :--- | :--- |
+| Admin Access Control | Guard `global_role=ADMIN` cho `/api/v1/admin/**` | `feature/admin-authz` | User thường bị 403; Admin truy cập được |
+| User Governance | `GET /api/v1/admin/users`, `PATCH /users/{id}/status` | `feature/admin-users` | Lọc/phân trang đúng; khóa/mở user đúng trạng thái |
+| Group Governance | `GET /api/v1/admin/groups`, `PATCH /groups/{id}/status` | `feature/admin-groups` | Lọc/phân trang đúng; khóa/mở group đúng trạng thái |
+| Admin Metrics Daily | `GET /api/v1/admin/metrics/daily` | `feature/admin-metrics-daily` | Trả số liệu theo ngày đúng timezone chuẩn |
+| Admin Metrics Monthly | `GET /api/v1/admin/metrics/monthly` | `feature/admin-metrics-monthly` | Trả tổng hợp tháng đúng số liệu đối soát |
+| Admin Audit Trail | `GET /api/v1/admin/audit-logs` | `feature/admin-audit-log` | Có actor/action/target/time và filter theo range |
+| Group Audit Foundation | Bảng `group_audit_logs`, service ghi log | `feature/group-audit-foundation` | Ghi log cho B03-B05 với before/after phù hợp |
+| Group Audit Query | `GET /api/v1/groups/{id}/audit-logs` | `feature/group-audit-query` | Manager xem được log group của mình, có filter + pagination |
+| Group Daily Summary | `GET /api/v1/groups/{id}/audit-logs/summary/daily` | `feature/group-audit-daily` | Trả số sự kiện/ngày theo action type |
+| Group Monthly Summary | `GET /api/v1/groups/{id}/audit-logs/summary/monthly` | `feature/group-audit-monthly` | Trả xu hướng tháng phục vụ dashboard manager |
+
+---
+
+## IV. QUY TRÌNH LÀM VIỆC VỚI GIT (GIT WORKFLOW)
 
 Để đảm bảo code chất lượng và tránh xung đột khi 5 người cùng làm việc, chúng ta tuân thủ quy trình sau:
 
@@ -274,7 +322,7 @@ Trước khi push code, hãy tự kiểm tra:
 
 ---
 
-## IV. DANH SÁCH TÍNH NĂNG & TIẾN ĐỘ (PRIORITY MATRIX)
+## V. DANH SÁCH TÍNH NĂNG & TIẾN ĐỘ (PRIORITY MATRIX)
 
 | Priority | Feature | Owner | Est. Time | Acceptance Criteria (AC) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -285,11 +333,14 @@ Trước khi push code, hãy tự kiểm tra:
 | **P1 (Cao)** | **B09 (Shift)** | TV2 | 3 ngày | Manager tạo được lịch làm việc từ template. |
 | **P2 (TB)** | **B11, B12 (Reg)** | TV3 | 3 ngày | Member thấy và đăng ký được ca. |
 | **P2 (TB)** | **B14, B15 (Approve)**| TV4 | 2 ngày | Manager duyệt được đơn. |
+| **P2 (TB)** | **B23 (Admin System)**| TV5 | 2 ngày | Admin quản trị được user/group, quyền truy cập chuẩn. |
+| **P2 (TB)** | **B23.1 (Admin Metrics Daily/Monthly)**| TV5 | 2 ngày | Dashboard admin có đủ số liệu ngày/tháng để giám sát ổn định hệ thống. |
+| **P1 (Cao)** | **B05.1 (Group Audit Timeline)**| TV1 | 2 ngày | Manager truy vấn được timeline hoạt động group theo actor/action/date. |
 | **P3 (Thấp)**| **B18, B21 (Advanced)**| TV5 | 5 ngày | Gợi ý nhân viên chạy đúng; Đổi ca hoạt động ổn. |
 
 ---
 
-## V. QUY TRÌNH PHÁT TRIỂN & DEPLOYMENT (CI/CD)
+## VI. QUY TRÌNH PHÁT TRIỂN & DEPLOYMENT (CI/CD)
 
 ### 1. Môi trường (Environments)
 *   **Local**: Môi trường phát triển trên máy cá nhân của từng thành viên.
@@ -316,7 +367,7 @@ Trước khi push code, hãy tự kiểm tra:
 
 ---
 
-## VI. CÔNG CỤ HỖ TRỢ (TOOLS)
+## VII. CÔNG CỤ HỖ TRỢ (TOOLS)
 *   **IDE**: IntelliJ IDEA (Backend), VS Code (Frontend).
 *   **API Test**: Postman (Shared Collection).
 *   **Database**: MySQL Workbench / DBeaver.
