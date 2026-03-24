@@ -11,4 +11,6 @@ import com.workshift.backend.domain.User;
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
 	
 	boolean existsByShiftAndUser(Shift shift, User user);
+
+	java.util.Optional<Registration> findByIdAndUser(Long id, User user);
 }

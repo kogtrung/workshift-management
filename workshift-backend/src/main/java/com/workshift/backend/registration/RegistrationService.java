@@ -76,4 +76,42 @@ public class RegistrationService {
 				registration.getNote()
 		);
 	}
+
+	public RegistrationResponse cancelRegistration(Long registrationId, String username, com.workshift.backend.registration.dto.CancelRegistrationRequest request) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+
+		Registration registration = registrationRepository.findByIdAndUser(registrationId, user)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký của bạn"));
+
+		Shift shift = registration.getShift();
+
+		if (shift.getStatus() == ShiftStatus.LOCKED || shift.getStatus() == ShiftStatus.COMPLETED) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Không thể hủy khi ca làm việc đã khóa hoặc hoàn thành");
+		}
+
+		java.time.LocalDateTime now = java.time.LocalDateTime.now();
+		java.time.LocalDateTime shiftStart = java.time.LocalDateTime.of(shift.getDate(), shift.getStartTime());
+
+		if (!now.isBefore(shiftStart)) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Đã quá hạn hủy ca làm việc");
+		}
+
+		registration.setStatus(RegistrationStatus.CANCELLED);
+		
+		if (request != null && request.getReason() != null && !request.getReason().trim().isEmpty()) {
+			registration.setNote(request.getReason());
+		}
+
+		registration = registrationRepository.save(registration);
+
+		return new RegistrationResponse(
+				registration.getId(),
+				shift.getId(),
+				user.getId(),
+				registration.getPosition().getId(),
+				registration.getStatus(),
+				registration.getNote()
+		);
+	}
 }

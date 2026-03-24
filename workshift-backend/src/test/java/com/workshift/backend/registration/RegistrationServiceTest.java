@@ -215,4 +215,70 @@ class RegistrationServiceTest {
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals("Bạn đã đăng ký ca này rồi", exception.getMessage());
 	}
+
+	@Test
+	void cancelRegistration_success() {
+		RegisterShiftRequest registerReq = new RegisterShiftRequest();
+		registerReq.setPositionId(position.getId());
+		RegistrationResponse preReg = registrationService.registerShift(shift.getId(), member.getUsername(), registerReq);
+
+		com.workshift.backend.registration.dto.CancelRegistrationRequest cancelReq = new com.workshift.backend.registration.dto.CancelRegistrationRequest();
+		cancelReq.setReason("Bận việc đột xuất");
+
+		RegistrationResponse response = registrationService.cancelRegistration(preReg.getId(), member.getUsername(), cancelReq);
+
+		assertNotNull(response);
+		assertEquals(RegistrationStatus.CANCELLED, response.getStatus());
+		assertEquals("Bận việc đột xuất", response.getNote());
+	}
+
+	@Test
+	void cancelRegistration_fail_userNotFound() {
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.cancelRegistration(1L, "unknown_user", new com.workshift.backend.registration.dto.CancelRegistrationRequest());
+		});
+		assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+		assertEquals("Không tìm thấy người dùng", exception.getMessage());
+	}
+
+	@Test
+	void cancelRegistration_fail_registrationNotFoundOrNotYours() {
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.cancelRegistration(999L, member.getUsername(), new com.workshift.backend.registration.dto.CancelRegistrationRequest());
+		});
+		assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+		assertEquals("Không tìm thấy đăng ký của bạn", exception.getMessage());
+	}
+
+	@Test
+	void cancelRegistration_fail_shiftLocked() {
+		RegisterShiftRequest registerReq = new RegisterShiftRequest();
+		registerReq.setPositionId(position.getId());
+		RegistrationResponse preReg = registrationService.registerShift(shift.getId(), member.getUsername(), registerReq);
+
+		shift.setStatus(ShiftStatus.LOCKED);
+		shiftRepository.save(shift);
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.cancelRegistration(preReg.getId(), member.getUsername(), new com.workshift.backend.registration.dto.CancelRegistrationRequest());
+		});
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Không thể hủy khi ca làm việc đã khóa hoặc hoàn thành", exception.getMessage());
+	}
+
+	@Test
+	void cancelRegistration_fail_shiftStarted() {
+		RegisterShiftRequest registerReq = new RegisterShiftRequest();
+		registerReq.setPositionId(position.getId());
+		RegistrationResponse preReg = registrationService.registerShift(shift.getId(), member.getUsername(), registerReq);
+
+		shift.setDate(LocalDate.now().minusDays(1)); // yesterday
+		shiftRepository.save(shift);
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.cancelRegistration(preReg.getId(), member.getUsername(), new com.workshift.backend.registration.dto.CancelRegistrationRequest());
+		});
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Đã quá hạn hủy ca làm việc", exception.getMessage());
+	}
 }
