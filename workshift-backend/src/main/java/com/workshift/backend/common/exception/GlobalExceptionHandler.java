@@ -72,12 +72,23 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
 	}
 
+	@ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+			org.springframework.http.converter.HttpMessageNotReadableException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(400, "Cú pháp JSON không hợp lệ (Thiếu ngoặc hoặc sai định dạng)", Map.of(), request.getRequestURI());
+		return ResponseEntity.badRequest().body(body);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnexpected(
 			Exception ex,
 			HttpServletRequest request
 	) {
-		ErrorResponse body = ErrorResponse.of(500, "Lỗi hệ thống", Map.of(), request.getRequestURI());
+		ex.printStackTrace();
+		String errorMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getName();
+		ErrorResponse body = ErrorResponse.of(500, "Lỗi hệ thống: " + errorMsg, Map.of(), request.getRequestURI());
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
 	}
 }
