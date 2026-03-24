@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +33,7 @@ import com.workshift.backend.group.dto.GroupMemberResponse;
 import com.workshift.backend.group.dto.JoinGroupByCodeRequest;
 import com.workshift.backend.group.dto.JoinGroupResponse;
 import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
+import com.workshift.backend.group.dto.UpdateGroupRequest;
 
 import jakarta.validation.Valid;
 
@@ -67,6 +69,46 @@ public class GroupController {
 
 		CreateGroupResponse data = groupService.createGroup(authentication.getName(), request);
 		return ResponseEntity.status(201).body(ApiResponse.created("Tạo group thành công", data));
+	}
+
+	@PutMapping("/{id}")
+	public ResponseEntity<ApiResponse<CreateGroupResponse>> updateGroup(
+			Authentication authentication,
+			@PathVariable("id") Long groupId,
+			@Valid @RequestBody UpdateGroupRequest request
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		CreateGroupResponse data = groupService.updateGroup(authentication.getName(), groupId, request);
+		return ResponseEntity.ok(ApiResponse.ok("Cập nhật group thành công", data));
+	}
+
+	@PatchMapping("/{id}/status")
+	public ResponseEntity<ApiResponse<CreateGroupResponse>> toggleGroupStatus(
+			Authentication authentication,
+			@PathVariable("id") Long groupId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		CreateGroupResponse data = groupService.toggleGroupStatus(authentication.getName(), groupId);
+		return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái group thành công", data));
+	}
+
+	@DeleteMapping("/{id}")
+	public ResponseEntity<ApiResponse<Void>> deleteGroupPermanently(
+			Authentication authentication,
+			@PathVariable("id") Long groupId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		groupService.deleteGroupPermanently(authentication.getName(), groupId);
+		return ResponseEntity.ok(ApiResponse.ok("Xóa group vĩnh viễn thành công", null));
 	}
 
 	@PostMapping("/{id}/join")

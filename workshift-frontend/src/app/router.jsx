@@ -12,7 +12,11 @@ import { LoginPage } from '../pages/LoginPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { MembersPage } from '../pages/MembersPage'
 import { PendingMembersPage } from '../pages/PendingMembersPage'
+import { PositionsPage } from '../pages/PositionsPage'
 import { RegisterPage } from '../pages/RegisterPage'
+import { ShiftTemplatesPage } from '../pages/ShiftTemplatesPage'
+import { ShiftsPage } from '../pages/ShiftsPage'
+import { GroupSettingsPage } from '../pages/GroupSettingsPage'
 
 export const router = createBrowserRouter([
   {
@@ -53,7 +57,11 @@ export const router = createBrowserRouter([
       { index: true, element: <GroupHomePage /> },
       { path: 'members', element: <MembersPage /> },
       { path: 'members/pending', element: <PendingMembersPage /> },
+      { path: 'positions', element: <PositionsPage /> },
+      { path: 'shift-templates', element: <ShiftTemplatesPage /> },
+      { path: 'shifts', element: <ShiftsPage /> },
       { path: 'audit-logs', element: <AuditLogsPage /> },
+      { path: 'settings', element: <GroupSettingsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

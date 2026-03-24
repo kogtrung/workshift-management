@@ -20,33 +20,55 @@ import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.GroupStatus;
 import com.workshift.backend.domain.User;
-import com.workshift.backend.group.dto.MyGroupResponse;
-import com.workshift.backend.group.dto.GroupMemberDetailResponse;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
+import com.workshift.backend.group.dto.GroupMemberDetailResponse;
 import com.workshift.backend.group.dto.GroupMemberResponse;
 import com.workshift.backend.group.dto.JoinGroupResponse;
+import com.workshift.backend.group.dto.MyGroupResponse;
 import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
+import com.workshift.backend.group.dto.UpdateGroupRequest;
+import com.workshift.backend.repository.GroupAuditLogRepository;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
+import com.workshift.backend.repository.PositionRepository;
+import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftRequirementRepository;
+import com.workshift.backend.repository.ShiftTemplateRepository;
 import com.workshift.backend.repository.UserRepository;
 
 @Service
 public class GroupService {
 	private static final String JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
 	private final GroupRepository groupRepository;
 	private final GroupMemberRepository groupMemberRepository;
+	private final GroupAuditLogRepository groupAuditLogRepository;
+	private final PositionRepository positionRepository;
+	private final ShiftTemplateRepository shiftTemplateRepository;
+	private final ShiftRepository shiftRepository;
+	private final ShiftRequirementRepository shiftRequirementRepository;
 	private final UserRepository userRepository;
 	private final GroupAuditService groupAuditService;
 
 	public GroupService(
 			GroupRepository groupRepository,
 			GroupMemberRepository groupMemberRepository,
+			GroupAuditLogRepository groupAuditLogRepository,
+			PositionRepository positionRepository,
+			ShiftTemplateRepository shiftTemplateRepository,
+			ShiftRepository shiftRepository,
+			ShiftRequirementRepository shiftRequirementRepository,
 			UserRepository userRepository,
 			GroupAuditService groupAuditService
 	) {
 		this.groupRepository = groupRepository;
 		this.groupMemberRepository = groupMemberRepository;
+		this.groupAuditLogRepository = groupAuditLogRepository;
+		this.positionRepository = positionRepository;
+		this.shiftTemplateRepository = shiftTemplateRepository;
+		this.shiftRepository = shiftRepository;
+		this.shiftRequirementRepository = shiftRequirementRepository;
 		this.userRepository = userRepository;
 		this.groupAuditService = groupAuditService;
 	}
@@ -100,6 +122,113 @@ public class GroupService {
 		);
 	}
 
+	@Transactional
+	public CreateGroupResponse updateGroup(String username, Long groupId, UpdateGroupRequest request) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+		validateManagerPermission(groupId, manager.getId());
+
+		Group group = groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy group"));
+
+		Map<String, Object> oldValues = Map.of(
+				"name", group.getName(),
+				"description", group.getDescription() != null ? group.getDescription() : ""
+		);
+
+		group.setName(request.name().trim());
+		group.setDescription(request.description());
+
+		groupAuditService.recordEvent(
+				group,
+				manager,
+				GroupAuditActorRole.MANAGER,
+				GroupAuditActionType.GROUP_UPDATED,
+				GroupAuditEntityType.GROUP,
+				group.getId(),
+				"Cập nhật thông tin group",
+				oldValues,
+				Map.of(
+						"name", group.getName(),
+						"description", group.getDescription() != null ? group.getDescription() : ""
+				),
+				Map.of("source", "update_group")
+		);
+
+		return new CreateGroupResponse(
+				group.getId(),
+				group.getName(),
+				group.getDescription(),
+				group.getJoinCode(),
+				group.getStatus().name(),
+				group.getCreatedBy().getId()
+		);
+	}
+
+	@Transactional
+	public CreateGroupResponse toggleGroupStatus(String username, Long groupId) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+		validateManagerPermission(groupId, manager.getId());
+
+		Group group = groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy group"));
+
+		GroupStatus oldStatus = group.getStatus();
+		GroupStatus newStatus = (oldStatus == GroupStatus.ACTIVE) ? GroupStatus.INACTIVE : GroupStatus.ACTIVE;
+		group.setStatus(newStatus);
+
+		GroupAuditActionType actionType = (newStatus == GroupStatus.INACTIVE)
+				? GroupAuditActionType.GROUP_CLOSED
+				: GroupAuditActionType.GROUP_REOPENED;
+
+		groupAuditService.recordEvent(
+				group,
+				manager,
+				GroupAuditActorRole.MANAGER,
+				actionType,
+				GroupAuditEntityType.GROUP,
+				group.getId(),
+				newStatus == GroupStatus.INACTIVE ? "Đóng group" : "Mở lại group",
+				Map.of("status", oldStatus.name()),
+				Map.of("status", newStatus.name()),
+				Map.of("source", "toggle_group_status")
+		);
+
+		return new CreateGroupResponse(
+				group.getId(),
+				group.getName(),
+				group.getDescription(),
+				group.getJoinCode(),
+				group.getStatus().name(),
+				group.getCreatedBy().getId()
+		);
+	}
+
+	@Transactional
+	public void deleteGroupPermanently(String username, Long groupId) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+		validateManagerPermission(groupId, manager.getId());
+
+		Group group = groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy group"));
+
+		var shiftIds = shiftRepository.findByGroupIdOrderByDateAscStartTimeAsc(groupId).stream()
+				.map(shift -> shift.getId())
+				.toList();
+		if (!shiftIds.isEmpty()) {
+			shiftRequirementRepository.deleteAllByShiftIdIn(shiftIds);
+		}
+
+		shiftRepository.deleteAllByGroupId(groupId);
+		shiftTemplateRepository.deleteAllByGroupId(groupId);
+		positionRepository.deleteAllByGroupId(groupId);
+		groupAuditLogRepository.deleteAllByGroupId(groupId);
+		groupMemberRepository.deleteAllByGroupId(groupId);
+		groupRepository.delete(group);
+	}
+
 	@Transactional(readOnly = true)
 	public List<MyGroupResponse> getMyGroups(String username) {
 		User user = userRepository.findByUsername(username)
@@ -150,7 +279,6 @@ public class GroupService {
 		User user = userRepository.findByUsername(username)
 				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
 
-		// Any group member (APPROVED) can view the members list
 		GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc group này"));
 		if (membership.getStatus() != GroupMemberStatus.APPROVED) {
@@ -183,7 +311,6 @@ public class GroupService {
 
 		GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Bạn không thuộc group này"));
-
 		if (membership.getRole() == GroupRole.MANAGER) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Manager không thể rời group. Hãy chuyển quyền quản lý trước.");
 		}
@@ -237,7 +364,6 @@ public class GroupService {
 
 		GroupMember groupMember = groupMemberRepository.findByIdAndGroupId(memberId, groupId)
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy thành viên trong group"));
-
 		if (groupMember.getStatus() != GroupMemberStatus.PENDING) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Chỉ có thể duyệt yêu cầu ở trạng thái PENDING");
 		}
@@ -292,7 +418,6 @@ public class GroupService {
 		if (group.getStatus() != GroupStatus.ACTIVE) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Group hiện không hoạt động");
 		}
-
 		if (groupMemberRepository.findByGroupIdAndUserId(group.getId(), user.getId()).isPresent()) {
 			throw new BusinessException(HttpStatus.CONFLICT, "Bạn đã tham gia hoặc gửi yêu cầu vào group này");
 		}

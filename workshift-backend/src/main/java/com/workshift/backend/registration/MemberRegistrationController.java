@@ -40,6 +40,6 @@ public class MemberRegistrationController {
                 request
         );
 
-        return ResponseEntity.ok(ApiResponse.success("Hủy đăng ký ca làm việc thành công", data));
+        return ResponseEntity.ok(ApiResponse.ok("Hủy đăng ký ca làm việc thành công", data));
     }
 }

@@ -18,6 +18,10 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
 
 	Optional<Shift> findByIdAndGroupId(Long id, Long groupId);
 
+	List<Shift> findByGroupIdOrderByDateAscStartTimeAsc(Long groupId);
+
+	List<Shift> findByGroupIdAndDateBetweenOrderByDateAscStartTimeAsc(Long groupId, LocalDate startDate, LocalDate endDate);
+
 	@Query("SELECT s FROM Shift s WHERE s.group.id = :groupId AND s.date = :date AND " +
 		   "((s.startTime < :endTime AND s.endTime > :startTime))")
 	List<Shift> findOverlappingShifts(@Param("groupId") Long groupId,
@@ -26,4 +30,6 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
 									 @Param("endTime") LocalTime endTime);
 
 	List<Shift> findByGroupIdAndStatusOrderByDateAscStartTimeAsc(Long groupId, ShiftStatus status);
+
+	void deleteAllByGroupId(Long groupId);
 }

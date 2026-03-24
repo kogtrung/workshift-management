@@ -2,6 +2,7 @@ package com.workshift.backend.repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -15,6 +16,10 @@ public interface ShiftRequirementRepository extends JpaRepository<ShiftRequireme
 
 	List<ShiftRequirement> findByShiftId(Long shiftId);
 
+	List<ShiftRequirement> findByShiftIdIn(java.util.Collection<Long> shiftIds);
+
 	Optional<ShiftRequirement> findByIdAndShiftId(Long id, Long shiftId);
+
+	void deleteAllByShiftIdIn(Collection<Long> shiftIds);
 }
 

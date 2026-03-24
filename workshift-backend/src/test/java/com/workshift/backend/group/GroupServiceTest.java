@@ -6,11 +6,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import com.workshift.backend.domain.Position;
+import com.workshift.backend.domain.Shift;
+import com.workshift.backend.domain.ShiftRequirement;
+import com.workshift.backend.domain.ShiftTemplate;
 import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.User;
@@ -18,8 +25,13 @@ import com.workshift.backend.common.exception.BusinessException;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.GroupMemberReviewAction;
 import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
+import com.workshift.backend.repository.GroupAuditLogRepository;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
+import com.workshift.backend.repository.PositionRepository;
+import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftRequirementRepository;
+import com.workshift.backend.repository.ShiftTemplateRepository;
 import com.workshift.backend.repository.UserRepository;
 
 @SpringBootTest
@@ -36,6 +48,21 @@ class GroupServiceTest {
 
 	@Autowired
 	private GroupMemberRepository groupMemberRepository;
+
+	@Autowired
+	private GroupAuditLogRepository groupAuditLogRepository;
+
+	@Autowired
+	private PositionRepository positionRepository;
+
+	@Autowired
+	private ShiftTemplateRepository shiftTemplateRepository;
+
+	@Autowired
+	private ShiftRepository shiftRepository;
+
+	@Autowired
+	private ShiftRequirementRepository shiftRequirementRepository;
 
 	@Test
 	void createGroup_shouldAssignCreatorAsManager() {
@@ -221,5 +248,61 @@ class GroupServiceTest {
 		);
 
 		assertEquals(GroupMemberStatus.REJECTED.name(), reviewResponse.status());
+	}
+
+	@Test
+	void deleteGroupPermanently_shouldDeleteAuditAndRelatedData() {
+		User manager = new User();
+		manager.setUsername("manager_delete_01");
+		manager.setEmail("manager_delete_01@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Delete 01");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Delete", "Nhóm để test delete")
+		);
+		var group = groupRepository.findById(createdGroup.id()).orElseThrow();
+
+		Position position = new Position();
+		position.setGroup(group);
+		position.setName("Phục vụ");
+		Position savedPosition = positionRepository.save(position);
+
+		ShiftTemplate template = new ShiftTemplate();
+		template.setGroup(group);
+		template.setName("Ca Sáng");
+		template.setStartTime(LocalTime.of(7, 0));
+		template.setEndTime(LocalTime.of(12, 0));
+		ShiftTemplate savedTemplate = shiftTemplateRepository.save(template);
+
+		Shift shift = new Shift();
+		shift.setGroup(group);
+		shift.setTemplate(savedTemplate);
+		shift.setName("Ca Sáng");
+		shift.setDate(LocalDate.now());
+		shift.setStartTime(LocalTime.of(7, 0));
+		shift.setEndTime(LocalTime.of(12, 0));
+		Shift savedShift = shiftRepository.save(shift);
+
+		ShiftRequirement requirement = new ShiftRequirement();
+		requirement.setShift(savedShift);
+		requirement.setPosition(savedPosition);
+		requirement.setQuantity(2);
+		ShiftRequirement savedRequirement = shiftRequirementRepository.save(requirement);
+
+		assertTrue(groupAuditLogRepository.countByGroupId(createdGroup.id()) > 0);
+		assertTrue(groupRepository.findById(createdGroup.id()).isPresent());
+
+		groupService.deleteGroupPermanently(savedManager.getUsername(), createdGroup.id());
+
+		assertTrue(groupRepository.findById(createdGroup.id()).isEmpty());
+		assertTrue(groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedManager.getId()).isEmpty());
+		assertEquals(0, groupAuditLogRepository.countByGroupId(createdGroup.id()));
+		assertTrue(positionRepository.findById(savedPosition.getId()).isEmpty());
+		assertTrue(shiftTemplateRepository.findById(savedTemplate.getId()).isEmpty());
+		assertTrue(shiftRepository.findById(savedShift.getId()).isEmpty());
+		assertTrue(shiftRequirementRepository.findById(savedRequirement.getId()).isEmpty());
 	}
 }

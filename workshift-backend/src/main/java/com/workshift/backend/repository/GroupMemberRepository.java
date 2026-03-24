@@ -16,4 +16,6 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 	List<GroupMember> findAllByGroupIdAndStatus(Long groupId, GroupMemberStatus status);
 
 	List<GroupMember> findAllByUserIdAndStatusIn(Long userId, List<GroupMemberStatus> statuses);
+
+	void deleteAllByGroupId(Long groupId);
 }

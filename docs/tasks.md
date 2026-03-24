@@ -22,12 +22,12 @@
 - Phạm vi: B03, B04, B05, B05.1.
 - API chính: tạo group (có joinCode 6 ký tự), join-by-id/join-by-code, pending members, approve/reject member, audit timeline theo group.
 - Kết quả mong đợi: hoàn chỉnh luồng tạo group và onboarding thành viên.
-- Trạng thái: **Đang triển khai**.
+- Trạng thái: **Đã triển khai (Backend + UI cơ bản)**.
 
 ### Giai đoạn 3: Shift Configuration
 - Phạm vi: B06, B07, B09, B10.
 - Kết quả mong đợi: manager cấu hình vị trí, ca mẫu, ca làm việc, nhu cầu nhân sự.
-- Trạng thái: **Chưa triển khai**.
+- Trạng thái: **Đã triển khai (Backend), Frontend chưa triển khai**.
 
 ### Giai đoạn 4: Member Scheduling Flow
 - Phạm vi: B08, B11, B12, B13, B19.
