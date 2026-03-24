@@ -1,5 +1,6 @@
-package com.workshift.backend.position;
+package com.workshift.backend.shift;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.workshift.backend.position.dto.CreatePositionRequest;
-import com.workshift.backend.position.dto.PositionResponse;
+import com.workshift.backend.shift.dto.template.CreateShiftTemplateRequest;
+import com.workshift.backend.shift.dto.template.ShiftTemplateResponse;
 
-@WebMvcTest(PositionController.class)
-class PositionControllerTest {
+@WebMvcTest(ShiftTemplateController.class)
+class ShiftTemplateControllerTest {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -33,7 +34,7 @@ class PositionControllerTest {
 	private ObjectMapper objectMapper;
 
 	@MockBean
-	private PositionService positionService;
+	private ShiftTemplateService shiftTemplateService;
 
 	@MockBean
 	private com.workshift.backend.auth.jwt.JwtService jwtService;
@@ -46,28 +47,28 @@ class PositionControllerTest {
 
 	@Test
 	@WithMockUser(username = "manager")
-	void createPosition_ReturnsCreated() throws Exception {
-		CreatePositionRequest req = new CreatePositionRequest("Pha chế", "#FFFFFF");
-		PositionResponse res = new PositionResponse(1L, 10L, "Pha chế", "#FFFFFF");
+	void createTemplate_ReturnsCreated() throws Exception {
+		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
 
-		when(positionService.createPosition(eq("manager"), eq(10L), any(CreatePositionRequest.class))).thenReturn(res);
-
-		mockMvc.perform(post("/api/v1/groups/10/positions")
+		when(shiftTemplateService.createTemplate(eq("manager"), eq(10L), any(CreateShiftTemplateRequest.class))).thenReturn(res);
+		
+		mockMvc.perform(post("/api/v1/groups/10/shift-templates")
 						.with(csrf())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(req)))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.data.id").value(1L))
-				.andExpect(jsonPath("$.data.name").value("Pha chế"));
+				.andExpect(jsonPath("$.data.name").value("Ca Sáng"));
 	}
 
 	@Test
 	@WithMockUser(username = "member")
-	void getPositions_ReturnsOk() throws Exception {
-		PositionResponse res = new PositionResponse(1L, 10L, "Pha chế", "#FFFFFF");
-		when(positionService.getPositions("member", 10L)).thenReturn(List.of(res));
+	void getTemplates_ReturnsOk() throws Exception {
+		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		when(shiftTemplateService.getTemplates("member", 10L)).thenReturn(List.of(res));
 
-		mockMvc.perform(get("/api/v1/groups/10/positions")
+		mockMvc.perform(get("/api/v1/groups/10/shift-templates")
 						.with(csrf()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data[0].id").value(1L));
