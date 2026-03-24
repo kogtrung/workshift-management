@@ -21,10 +21,12 @@ import com.workshift.backend.domain.GroupMember;
 import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.ShiftStatus;
+import com.workshift.backend.domain.ShiftTemplate;
 import com.workshift.backend.domain.User;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftTemplateRepository;
 import com.workshift.backend.repository.UserRepository;
 import com.workshift.backend.shift.dto.CreateShiftRequest;
 import com.workshift.backend.shift.dto.CreateShiftResponse;
@@ -48,6 +50,9 @@ class ShiftServiceTest {
 
 	@Autowired
 	private ShiftRepository shiftRepository;
+
+	@Autowired
+	private ShiftTemplateRepository shiftTemplateRepository;
 
 	private User manager;
 	private Group group;
@@ -159,5 +164,71 @@ class ShiftServiceTest {
 
 		assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
 		assertEquals("Chỉ Quản lý mới có quyền tạo ca làm việc", exception.getMessage());
+	}
+
+	@Test
+	void createShift_withTemplate_shouldUseTemplateTimesAndDefaultName() {
+		ShiftTemplate template = new ShiftTemplate();
+		template.setGroup(group);
+		template.setName("Ca Template");
+		template.setStartTime(LocalTime.of(7, 0));
+		template.setEndTime(LocalTime.of(11, 0));
+		template = shiftTemplateRepository.save(template);
+
+		CreateShiftRequest request = new CreateShiftRequest();
+		request.setDate(LocalDate.now().plusDays(2));
+		request.setTemplateId(template.getId());
+
+		CreateShiftResponse response = shiftService.createShift(group.getId(), manager.getUsername(), request);
+
+		assertNotNull(response.getId());
+		assertEquals("Ca Template", response.getName());
+		assertEquals(LocalTime.of(7, 0), response.getStartTime());
+		assertEquals(LocalTime.of(11, 0), response.getEndTime());
+		assertEquals(template.getId(), response.getTemplateId());
+	}
+
+	@Test
+	void createShift_withTemplate_shouldRejectManualTimes() {
+		ShiftTemplate template = new ShiftTemplate();
+		template.setGroup(group);
+		template.setName("Ca Template 2");
+		template.setStartTime(LocalTime.of(7, 0));
+		template.setEndTime(LocalTime.of(11, 0));
+		template = shiftTemplateRepository.save(template);
+
+		CreateShiftRequest request = new CreateShiftRequest();
+		request.setDate(LocalDate.now().plusDays(2));
+		request.setTemplateId(template.getId());
+		request.setStartTime(LocalTime.of(8, 0));
+		request.setEndTime(LocalTime.of(12, 0));
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			shiftService.createShift(group.getId(), manager.getUsername(), request);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Đã chọn ca mẫu thì không được nhập giờ thủ công", exception.getMessage());
+	}
+
+	@Test
+	void createShiftsBulk_shouldCreateMultipleShifts() {
+		CreateShiftRequest request1 = new CreateShiftRequest();
+		request1.setName("Ca 1");
+		request1.setDate(LocalDate.now().plusDays(3));
+		request1.setStartTime(LocalTime.of(8, 0));
+		request1.setEndTime(LocalTime.of(12, 0));
+
+		CreateShiftRequest request2 = new CreateShiftRequest();
+		request2.setName("Ca 2");
+		request2.setDate(LocalDate.now().plusDays(4));
+		request2.setStartTime(LocalTime.of(13, 0));
+		request2.setEndTime(LocalTime.of(17, 0));
+
+		var responses = shiftService.createShiftsBulk(group.getId(), manager.getUsername(), java.util.List.of(request1, request2));
+
+		assertEquals(2, responses.size());
+		assertNotNull(responses.get(0).getId());
+		assertNotNull(responses.get(1).getId());
 	}
 }
