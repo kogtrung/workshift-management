@@ -3,22 +3,24 @@ package com.workshift.backend.shift.dto;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public class CreateShiftRequest {
 
-	@NotBlank(message = "Tên ca làm việc không được để trống")
 	private String name;
 
 	@NotNull(message = "Ngày làm việc không được để trống")
 	private LocalDate date;
 
-	@NotNull(message = "Giờ bắt đầu không được để trống")
 	private LocalTime startTime;
 
-	@NotNull(message = "Giờ kết thúc không được để trống")
 	private LocalTime endTime;
+
+	private Long templateId;
+
+	@Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
+	private String note;
 
 	public String getName() {
 		return name;
@@ -50,5 +52,21 @@ public class CreateShiftRequest {
 
 	public void setEndTime(LocalTime endTime) {
 		this.endTime = endTime;
+	}
+
+	public Long getTemplateId() {
+		return templateId;
+	}
+
+	public void setTemplateId(Long templateId) {
+		this.templateId = templateId;
+	}
+
+	public String getNote() {
+		return note;
+	}
+
+	public void setNote(String note) {
+		this.note = note;
 	}
 }

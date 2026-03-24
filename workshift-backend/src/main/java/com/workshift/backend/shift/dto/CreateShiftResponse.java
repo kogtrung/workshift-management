@@ -8,10 +8,13 @@ import com.workshift.backend.domain.ShiftStatus;
 public class CreateShiftResponse {
 
 	private Long id;
+	private Long groupId;
+	private Long templateId;
 	private String name;
 	private LocalDate date;
 	private LocalTime startTime;
 	private LocalTime endTime;
+	private String note;
 	private ShiftStatus status;
 
 	public Long getId() {
@@ -20,6 +23,22 @@ public class CreateShiftResponse {
 
 	public void setId(Long id) {
 		this.id = id;
+	}
+
+	public Long getGroupId() {
+		return groupId;
+	}
+
+	public void setGroupId(Long groupId) {
+		this.groupId = groupId;
+	}
+
+	public Long getTemplateId() {
+		return templateId;
+	}
+
+	public void setTemplateId(Long templateId) {
+		this.templateId = templateId;
 	}
 
 	public String getName() {
@@ -52,6 +71,14 @@ public class CreateShiftResponse {
 
 	public void setEndTime(LocalTime endTime) {
 		this.endTime = endTime;
+	}
+
+	public String getNote() {
+		return note;
+	}
+
+	public void setNote(String note) {
+		this.note = note;
 	}
 
 	public ShiftStatus getStatus() {

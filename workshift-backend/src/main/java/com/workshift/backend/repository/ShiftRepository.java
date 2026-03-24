@@ -3,6 +3,7 @@ package com.workshift.backend.repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,8 @@ import com.workshift.backend.domain.Shift;
 
 @Repository
 public interface ShiftRepository extends JpaRepository<Shift, Long> {
+
+	Optional<Shift> findByIdAndGroupId(Long id, Long groupId);
 
 	@Query("SELECT s FROM Shift s WHERE s.group.id = :groupId AND s.date = :date AND " +
 		   "((s.startTime < :endTime AND s.endTime > :startTime))")
