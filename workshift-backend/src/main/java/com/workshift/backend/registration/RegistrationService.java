@@ -179,6 +179,39 @@ public class RegistrationService {
 	}
 
 	/**
+	 * B15: Manager từ chối đăng ký ca.
+	 * Kiểm tra: PENDING, quyền MANAGER. Cập nhật trạng thái REJECTED và lý do.
+	 */
+	public RegistrationResponse rejectRegistration(Long registrationId, String username, com.workshift.backend.registration.dto.RejectRegistrationRequest request) {
+		User manager = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng"));
+
+		Registration registration = registrationRepository.findById(registrationId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy đăng ký"));
+
+		if (registration.getStatus() != RegistrationStatus.PENDING) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Chỉ có thể từ chối đăng ký ở trạng thái chờ duyệt");
+		}
+
+		Shift shift = registration.getShift();
+		Long groupId = shift.getGroup().getId();
+
+		GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, manager.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không phải là thành viên của nhóm này"));
+
+		if (member.getRole() != GroupRole.MANAGER || member.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Chỉ Quản lý mới có quyền từ chối đăng ký ca");
+		}
+
+		registration.setStatus(RegistrationStatus.REJECTED);
+		registration.setManagerNote(request.getReason());
+
+		registration = registrationRepository.save(registration);
+
+		return toResponse(registration);
+	}
+
+	/**
 	 * Danh sách đăng ký PENDING theo ca (cho Manager xem).
 	 */
 	@Transactional(readOnly = true)
@@ -211,7 +244,8 @@ public class RegistrationService {
 				registration.getUser().getId(),
 				registration.getPosition().getId(),
 				registration.getStatus(),
-				registration.getNote()
+				registration.getNote(),
+				registration.getManagerNote()
 		);
 	}
 }

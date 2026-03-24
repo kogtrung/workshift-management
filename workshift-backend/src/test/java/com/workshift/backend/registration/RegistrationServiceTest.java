@@ -395,6 +395,59 @@ class RegistrationServiceTest {
 		});
 
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals("Không thể duyệt đăng ký cho ca đã khóa hoặc hoàn thành", exception.getMessage());
+	}
+
+	// ===== B15: rejectRegistration tests =====
+
+	@Test
+	void rejectRegistration_success() {
+		RegistrationResponse reg = registerAsMember();
+
+		com.workshift.backend.registration.dto.RejectRegistrationRequest rejectReq = new com.workshift.backend.registration.dto.RejectRegistrationRequest();
+		rejectReq.setReason("Không phù hợp vị trí");
+
+		RegistrationResponse response = registrationService.rejectRegistration(reg.getId(), manager.getUsername(), rejectReq);
+
+		assertNotNull(response);
+		assertEquals(RegistrationStatus.REJECTED, response.getStatus());
+		assertEquals("Không phù hợp vị trí", response.getManagerNote());
+	}
+
+	@Test
+	void rejectRegistration_fail_notManager() {
+		RegistrationResponse reg = registerAsMember();
+
+		com.workshift.backend.registration.dto.RejectRegistrationRequest rejectReq = new com.workshift.backend.registration.dto.RejectRegistrationRequest();
+		rejectReq.setReason("Từ chối");
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.rejectRegistration(reg.getId(), member.getUsername(), rejectReq);
+		});
+
+		assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+		assertEquals("Chỉ Quản lý mới có quyền từ chối đăng ký ca", exception.getMessage());
+	}
+
+	@Test
+	void rejectRegistration_fail_notPending() {
+		addShiftRequirement(2);
+		RegistrationResponse reg = registerAsMember();
+
+		// Approve first
+		ApproveRegistrationRequest approveReq = new ApproveRegistrationRequest();
+		approveReq.setManagerNote("Đã duyệt");
+		registrationService.approveRegistration(reg.getId(), manager.getUsername(), approveReq);
+
+		com.workshift.backend.registration.dto.RejectRegistrationRequest rejectReq = new com.workshift.backend.registration.dto.RejectRegistrationRequest();
+		rejectReq.setReason("Từ chối lại");
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.rejectRegistration(reg.getId(), manager.getUsername(), rejectReq);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Chỉ có thể từ chối đăng ký ở trạng thái chờ duyệt", exception.getMessage());
 	}
 }
