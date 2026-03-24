@@ -5,6 +5,7 @@ public record ShiftRequirementResponse(
 		Long shiftId,
 		Long positionId,
 		String positionName,
+		String positionColorCode,
 		Integer quantity
 ) {
 }

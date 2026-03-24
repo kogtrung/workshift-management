@@ -2,8 +2,10 @@ package com.workshift.backend.shift.dto;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import com.workshift.backend.domain.ShiftStatus;
+import com.workshift.backend.shiftrequirement.dto.ShiftRequirementResponse;
 
 public class CreateShiftResponse {
 
@@ -16,6 +18,8 @@ public class CreateShiftResponse {
 	private LocalTime endTime;
 	private String note;
 	private ShiftStatus status;
+	private List<ShiftRequirementResponse> requirements;
+	private int totalRequired;
 
 	public Long getId() {
 		return id;
@@ -87,5 +91,21 @@ public class CreateShiftResponse {
 
 	public void setStatus(ShiftStatus status) {
 		this.status = status;
+	}
+
+	public List<ShiftRequirementResponse> getRequirements() {
+		return requirements;
+	}
+
+	public void setRequirements(List<ShiftRequirementResponse> requirements) {
+		this.requirements = requirements;
+	}
+
+	public int getTotalRequired() {
+		return totalRequired;
+	}
+
+	public void setTotalRequired(int totalRequired) {
+		this.totalRequired = totalRequired;
 	}
 }

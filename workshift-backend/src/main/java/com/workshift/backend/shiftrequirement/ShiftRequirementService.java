@@ -163,6 +163,7 @@ public class ShiftRequirementService {
 				requirement.getShift().getId(),
 				requirement.getPosition().getId(),
 				requirement.getPosition().getName(),
+				requirement.getPosition().getColorCode(),
 				requirement.getQuantity()
 		);
 	}

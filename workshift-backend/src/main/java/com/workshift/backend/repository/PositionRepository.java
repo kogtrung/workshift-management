@@ -18,4 +18,6 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
 	boolean existsByGroupIdAndName(Long groupId, String name);
 
 	boolean existsByGroupIdAndNameAndIdNot(Long groupId, String name, Long id);
+
+	void deleteAllByGroupId(Long groupId);
 }
