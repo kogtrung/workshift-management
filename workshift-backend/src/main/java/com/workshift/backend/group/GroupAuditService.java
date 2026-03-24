@@ -7,8 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -40,15 +43,18 @@ public class GroupAuditService {
 	private final GroupAuditLogRepository groupAuditLogRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final UserRepository userRepository;
+	private final ObjectMapper objectMapper;
 
 	public GroupAuditService(
 			GroupAuditLogRepository groupAuditLogRepository,
 			GroupMemberRepository groupMemberRepository,
-			UserRepository userRepository
+			UserRepository userRepository,
+			ObjectMapper objectMapper
 	) {
 		this.groupAuditLogRepository = groupAuditLogRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.userRepository = userRepository;
+		this.objectMapper = objectMapper;
 	}
 
 	@Transactional
@@ -92,6 +98,13 @@ public class GroupAuditService {
 			int page,
 			int size
 	) {
+		if (page < 0) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "page phải >= 0");
+		}
+		if (size < 1 || size > 200) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "size phải nằm trong khoảng 1..200");
+		}
+
 		User manager = userRepository.findByUsername(username)
 				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
 		validateManagerPermission(groupId, manager.getId());
@@ -116,7 +129,10 @@ public class GroupAuditService {
 			specification = specification.and(byEntityId(entityId));
 		}
 
-		Page<GroupAuditLog> data = groupAuditLogRepository.findAll(specification, PageRequest.of(page, size));
+		Page<GroupAuditLog> data = groupAuditLogRepository.findAll(
+				specification,
+				PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "occurredAt"))
+		);
 		List<GroupAuditLogResponse> items = data.getContent().stream().map(this::toResponse).toList();
 		return new GroupAuditLogPageResponse(items, page, size, data.getTotalElements(), data.getTotalPages());
 	}
@@ -197,7 +213,18 @@ public class GroupAuditService {
 		if (input == null) {
 			return null;
 		}
-		return String.valueOf(input);
+		if (input instanceof String raw) {
+			return raw;
+		}
+		try {
+			return objectMapper.writeValueAsString(input);
+		} catch (JsonProcessingException e) {
+			try {
+				return objectMapper.writeValueAsString(String.valueOf(input));
+			} catch (JsonProcessingException ignored) {
+				return String.valueOf(input);
+			}
+		}
 	}
 
 	private Specification<GroupAuditLog> byGroupId(Long groupId) {
