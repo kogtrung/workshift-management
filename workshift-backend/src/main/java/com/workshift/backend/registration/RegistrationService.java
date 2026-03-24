@@ -36,19 +36,22 @@ public class RegistrationService {
 	private final PositionRepository positionRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final ShiftRequirementRepository shiftRequirementRepository;
+	private final com.workshift.backend.repository.GroupMemberRepository groupMemberRepository;
 
 	public RegistrationService(RegistrationRepository registrationRepository,
 	                           ShiftRepository shiftRepository,
 	                           UserRepository userRepository,
 	                           PositionRepository positionRepository,
 	                           GroupMemberRepository groupMemberRepository,
-	                           ShiftRequirementRepository shiftRequirementRepository) {
+	                           ShiftRequirementRepository shiftRequirementRepository,
+	                           com.workshift.backend.repository.GroupMemberRepository groupMemberRepository) {
 		this.registrationRepository = registrationRepository;
 		this.shiftRepository = shiftRepository;
 		this.userRepository = userRepository;
 		this.positionRepository = positionRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.shiftRequirementRepository = shiftRequirementRepository;
+
 	}
 
 	public RegistrationResponse registerShift(Long shiftId, String username, RegisterShiftRequest request) {
@@ -210,6 +213,60 @@ public class RegistrationService {
 				registration.getShift().getId(),
 				registration.getUser().getId(),
 				registration.getPosition().getId(),
+				registration.getStatus(),
+				registration.getNote()
+		);
+	}
+
+	public RegistrationResponse assignShift(Long shiftId, String managerUsername, com.workshift.backend.registration.dto.AssignShiftRequest request) {
+		User manager = userRepository.findByUsername(managerUsername)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy người quản lý"));
+
+		Shift shift = shiftRepository.findById(shiftId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm việc"));
+
+		com.workshift.backend.domain.GroupMember managerMembership = groupMemberRepository.findByGroupAndUser(shift.getGroup(), manager)
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc nhóm này"));
+
+		if (!managerMembership.getRole().name().equals("MANAGER")) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Thao tác yêu cầu quyền Quản lý (MANAGER)");
+		}
+
+		if (shift.getStatus() == ShiftStatus.LOCKED || shift.getStatus() == ShiftStatus.COMPLETED) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Không thể gán nhân viên vào ca đã khóa hoặc hoàn thành");
+		}
+
+		User targetUser = userRepository.findById(request.getUserId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên mục tiêu"));
+
+		com.workshift.backend.domain.GroupMember targetMembership = groupMemberRepository.findByGroupAndUser(shift.getGroup(), targetUser)
+				.orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "Nhân viên mục tiêu không thuộc nhóm này"));
+
+		Position position = positionRepository.findById(request.getPositionId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí"));
+
+		if (!position.getGroup().getId().equals(shift.getGroup().getId())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Vị trí không thuộc nhóm của ca làm việc");
+		}
+
+		if (registrationRepository.existsByShiftAndUser(shift, targetUser)) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Nhân viên đã đăng ký hoặc được gán ca này rồi");
+		}
+
+		Registration registration = new Registration();
+		registration.setShift(shift);
+		registration.setUser(targetUser);
+		registration.setPosition(position);
+		registration.setStatus(RegistrationStatus.APPROVED);
+		registration.setManagerNote(request.getNote());
+
+		registration = registrationRepository.save(registration);
+
+		return new RegistrationResponse(
+				registration.getId(),
+				shift.getId(),
+				targetUser.getId(),
+				position.getId(),
 				registration.getStatus(),
 				registration.getNote()
 		);

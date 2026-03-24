@@ -45,15 +45,24 @@ public class RegistrationController {
 		return ResponseEntity.status(201).body(ApiResponse.created("Đăng ký ca làm việc thành công", data));
 	}
 
+
 	@PatchMapping("/registrations/{id}/approve")
 	public ResponseEntity<ApiResponse<RegistrationResponse>> approveRegistration(
 			Authentication authentication,
 			@PathVariable("id") Long registrationId,
 			@RequestBody(required = false) ApproveRegistrationRequest request
+
+	@PostMapping("/{id}/assign")
+	public ResponseEntity<ApiResponse<RegistrationResponse>> assignShift(
+			Authentication authentication,
+			@PathVariable("id") Long shiftId,
+			@Valid @RequestBody com.workshift.backend.registration.dto.AssignShiftRequest request
+
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
 		}
+
 
 		RegistrationResponse data = registrationService.approveRegistration(registrationId, authentication.getName(), request);
 		return ResponseEntity.ok(ApiResponse.ok("Duyệt đăng ký ca thành công", data));
@@ -70,5 +79,9 @@ public class RegistrationController {
 
 		List<RegistrationResponse> data = registrationService.getPendingRegistrations(shiftId, authentication.getName());
 		return ResponseEntity.ok(ApiResponse.ok("Danh sách đăng ký chờ duyệt", data));
+
+		RegistrationResponse data = registrationService.assignShift(shiftId, authentication.getName(), request);
+		return ResponseEntity.status(201).body(ApiResponse.created("Gán nhân viên vào ca thành công", data));
+
 	}
 }
