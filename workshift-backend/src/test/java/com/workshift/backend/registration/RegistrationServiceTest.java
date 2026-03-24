@@ -23,14 +23,17 @@ import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.Position;
 import com.workshift.backend.domain.RegistrationStatus;
 import com.workshift.backend.domain.Shift;
+import com.workshift.backend.domain.ShiftRequirement;
 import com.workshift.backend.domain.ShiftStatus;
 import com.workshift.backend.domain.User;
+import com.workshift.backend.registration.dto.ApproveRegistrationRequest;
 import com.workshift.backend.registration.dto.RegisterShiftRequest;
 import com.workshift.backend.registration.dto.RegistrationResponse;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.PositionRepository;
 import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftRequirementRepository;
 import com.workshift.backend.repository.UserRepository;
 
 @SpringBootTest
@@ -55,6 +58,9 @@ class RegistrationServiceTest {
 
 	@Autowired
 	private PositionRepository positionRepository;
+
+	@Autowired
+	private ShiftRequirementRepository shiftRequirementRepository;
 
 	private User manager;
 	private User member;
@@ -83,6 +89,15 @@ class RegistrationServiceTest {
 		group.setCreatedBy(manager);
 		group = groupRepository.save(group);
 
+		// Manager as MANAGER role
+		GroupMember managerMember = new GroupMember();
+		managerMember.setGroup(group);
+		managerMember.setUser(manager);
+		managerMember.setRole(GroupRole.MANAGER);
+		managerMember.setStatus(GroupMemberStatus.APPROVED);
+		groupMemberRepository.save(managerMember);
+
+		// Member as MEMBER role
 		GroupMember groupMember = new GroupMember();
 		groupMember.setGroup(group);
 		groupMember.setUser(member);
@@ -104,6 +119,25 @@ class RegistrationServiceTest {
 		shift.setStatus(ShiftStatus.OPEN);
 		shift = shiftRepository.save(shift);
 	}
+
+	// ===== Helpers =====
+
+	private ShiftRequirement addShiftRequirement(int quantity) {
+		ShiftRequirement req = new ShiftRequirement();
+		req.setShift(shift);
+		req.setPosition(position);
+		req.setQuantity(quantity);
+		return shiftRequirementRepository.save(req);
+	}
+
+	private RegistrationResponse registerAsMember() {
+		RegisterShiftRequest request = new RegisterShiftRequest();
+		request.setPositionId(position.getId());
+		request.setNote("Đăng ký ca sáng");
+		return registrationService.registerShift(shift.getId(), member.getUsername(), request);
+	}
+
+	// ===== Existing tests: registerShift =====
 
 	@Test
 	void registerShift_success() {
@@ -216,6 +250,8 @@ class RegistrationServiceTest {
 		assertEquals("Bạn đã đăng ký ca này rồi", exception.getMessage());
 	}
 
+	// ===== Existing tests: cancelRegistration =====
+
 	@Test
 	void cancelRegistration_success() {
 		RegisterShiftRequest registerReq = new RegisterShiftRequest();
@@ -272,7 +308,7 @@ class RegistrationServiceTest {
 		registerReq.setPositionId(position.getId());
 		RegistrationResponse preReg = registrationService.registerShift(shift.getId(), member.getUsername(), registerReq);
 
-		shift.setDate(LocalDate.now().minusDays(1)); // yesterday
+		shift.setDate(LocalDate.now().minusDays(1));
 		shiftRepository.save(shift);
 
 		BusinessException exception = assertThrows(BusinessException.class, () -> {
@@ -280,5 +316,85 @@ class RegistrationServiceTest {
 		});
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals("Đã quá hạn hủy ca làm việc", exception.getMessage());
+	}
+
+	// ===== B14: approveRegistration tests =====
+
+	@Test
+	void approveRegistration_success() {
+		addShiftRequirement(2);
+		RegistrationResponse reg = registerAsMember();
+
+		ApproveRegistrationRequest approveReq = new ApproveRegistrationRequest();
+		approveReq.setManagerNote("Đã duyệt");
+
+		RegistrationResponse response = registrationService.approveRegistration(reg.getId(), manager.getUsername(), approveReq);
+
+		assertNotNull(response);
+		assertEquals(RegistrationStatus.APPROVED, response.getStatus());
+	}
+
+	@Test
+	void approveRegistration_fail_notManager() {
+		addShiftRequirement(2);
+		RegistrationResponse reg = registerAsMember();
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.approveRegistration(reg.getId(), member.getUsername(), null);
+		});
+
+		assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+		assertEquals("Chỉ Quản lý mới có quyền duyệt đăng ký ca", exception.getMessage());
+	}
+
+	@Test
+	void approveRegistration_fail_quotaFull() {
+		addShiftRequirement(1); // only 1 slot
+
+		// Member 1 registers and gets approved
+		RegistrationResponse reg1 = registerAsMember();
+		registrationService.approveRegistration(reg1.getId(), manager.getUsername(), null);
+
+		// Member 2 registers
+		User member2 = new User();
+		member2.setUsername("member2_test");
+		member2.setEmail("member2@test.com");
+		member2.setPassword("password");
+		member2.setFullName("Member 2");
+		member2 = userRepository.save(member2);
+
+		GroupMember gm2 = new GroupMember();
+		gm2.setGroup(group);
+		gm2.setUser(member2);
+		gm2.setRole(GroupRole.MEMBER);
+		gm2.setStatus(GroupMemberStatus.APPROVED);
+		groupMemberRepository.save(gm2);
+
+		RegisterShiftRequest req2 = new RegisterShiftRequest();
+		req2.setPositionId(position.getId());
+		RegistrationResponse reg2 = registrationService.registerShift(shift.getId(), member2.getUsername(), req2);
+
+		// Approve member 2 → should fail, quota full
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.approveRegistration(reg2.getId(), manager.getUsername(), null);
+		});
+
+		assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+	}
+
+	@Test
+	void approveRegistration_fail_shiftLocked() {
+		addShiftRequirement(2);
+		RegistrationResponse reg = registerAsMember();
+
+		shift.setStatus(ShiftStatus.LOCKED);
+		shiftRepository.save(shift);
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.approveRegistration(reg.getId(), manager.getUsername(), null);
+		});
+
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Không thể duyệt đăng ký cho ca đã khóa hoặc hoàn thành", exception.getMessage());
 	}
 }

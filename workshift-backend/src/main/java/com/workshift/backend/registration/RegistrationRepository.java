@@ -36,4 +36,8 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 			@Param("from") LocalDate from,
 			@Param("to") LocalDate to
 	);
+
+	long countByShiftIdAndPositionIdAndStatus(Long shiftId, Long positionId, RegistrationStatus status);
+
+	List<Registration> findByShiftIdAndStatus(Long shiftId, RegistrationStatus status);
 }
