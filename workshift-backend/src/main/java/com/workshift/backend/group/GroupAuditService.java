@@ -185,10 +185,13 @@ public class GroupAuditService {
 	}
 
 	private GroupAuditLogResponse toResponse(GroupAuditLog log) {
+		User actor = log.getActorUser();
 		return new GroupAuditLogResponse(
 				log.getId(),
 				log.getGroup().getId(),
-				log.getActorUser().getId(),
+				actor.getId(),
+				actor.getUsername(),
+				actor.getFullName(),
 				log.getActorRole().name(),
 				log.getActionType().name(),
 				log.getEntityType().name(),

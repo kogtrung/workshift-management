@@ -6,6 +6,8 @@ public record GroupAuditLogResponse(
 		Long id,
 		Long groupId,
 		Long actorUserId,
+		String actorUsername,
+		String actorFullName,
 		String actorRole,
 		String actionType,
 		String entityType,

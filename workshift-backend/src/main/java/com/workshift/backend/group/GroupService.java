@@ -20,6 +20,8 @@ import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.GroupStatus;
 import com.workshift.backend.domain.User;
+import com.workshift.backend.group.dto.MyGroupResponse;
+import com.workshift.backend.group.dto.GroupMemberDetailResponse;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
 import com.workshift.backend.group.dto.GroupMemberResponse;
@@ -98,6 +100,30 @@ public class GroupService {
 		);
 	}
 
+	@Transactional(readOnly = true)
+	public List<MyGroupResponse> getMyGroups(String username) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+
+		List<GroupMemberStatus> activeStatuses = List.of(GroupMemberStatus.APPROVED, GroupMemberStatus.PENDING);
+
+		return groupMemberRepository.findAllByUserIdAndStatusIn(user.getId(), activeStatuses)
+				.stream()
+				.map(member -> {
+					Group group = member.getGroup();
+					return new MyGroupResponse(
+							group.getId(),
+							group.getName(),
+							group.getDescription(),
+							group.getJoinCode(),
+							group.getStatus().name(),
+							member.getRole().name(),
+							member.getStatus().name()
+					);
+				})
+				.toList();
+	}
+
 	@Transactional
 	public JoinGroupResponse joinGroup(String username, Long groupId) {
 		User user = userRepository.findByUsername(username)
@@ -120,20 +146,86 @@ public class GroupService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<GroupMemberResponse> getPendingMembers(String username, Long groupId) {
+	public List<GroupMemberDetailResponse> getGroupMembers(String username, Long groupId) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+
+		// Any group member (APPROVED) can view the members list
+		GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc group này"));
+		if (membership.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Bạn chưa được duyệt vào group này");
+		}
+
+		return groupMemberRepository.findAllByGroupIdAndStatus(groupId, GroupMemberStatus.APPROVED)
+				.stream()
+				.map(member -> {
+					User memberUser = member.getUser();
+					return new GroupMemberDetailResponse(
+							member.getId(),
+							member.getGroup().getId(),
+							memberUser.getId(),
+							memberUser.getUsername(),
+							memberUser.getFullName(),
+							memberUser.getEmail(),
+							member.getRole().name(),
+							member.getStatus().name(),
+							member.getJoinedAt()
+					);
+				})
+				.toList();
+	}
+
+	@Transactional
+	public void leaveGroup(String username, Long groupId) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
+
+		GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Bạn không thuộc group này"));
+
+		if (membership.getRole() == GroupRole.MANAGER) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Manager không thể rời group. Hãy chuyển quyền quản lý trước.");
+		}
+
+		groupAuditService.recordEvent(
+				membership.getGroup(),
+				user,
+				GroupAuditActorRole.MEMBER,
+				GroupAuditActionType.GROUP_MEMBER_REJECTED,
+				GroupAuditEntityType.GROUP_MEMBER,
+				membership.getId(),
+				"Thành viên rời group",
+				Map.of("status", membership.getStatus().name()),
+				Map.of("status", "LEFT"),
+				Map.of("source", "leave_group")
+		);
+
+		groupMemberRepository.delete(membership);
+	}
+
+	@Transactional(readOnly = true)
+	public List<GroupMemberDetailResponse> getPendingMembers(String username, Long groupId) {
 		User manager = userRepository.findByUsername(username)
 				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng đăng nhập"));
 		validateManagerPermission(groupId, manager.getId());
 
 		return groupMemberRepository.findAllByGroupIdAndStatus(groupId, GroupMemberStatus.PENDING)
 				.stream()
-				.map(member -> new GroupMemberResponse(
-						member.getId(),
-						member.getGroup().getId(),
-						member.getUser().getId(),
-						member.getRole().name(),
-						member.getStatus().name()
-				))
+				.map(member -> {
+					User memberUser = member.getUser();
+					return new GroupMemberDetailResponse(
+							member.getId(),
+							member.getGroup().getId(),
+							memberUser.getId(),
+							memberUser.getUsername(),
+							memberUser.getFullName(),
+							memberUser.getEmail(),
+							member.getRole().name(),
+							member.getStatus().name(),
+							member.getJoinedAt()
+					);
+				})
 				.toList();
 	}
 
