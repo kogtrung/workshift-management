@@ -2,8 +2,8 @@
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
 >
-> Phiên bản: 1.6 (Điều chỉnh Group Audit triển khai sau B05)
-> Ngày cập nhật: 2026-03-14
+> Phiên bản: 1.7 (Cập nhật tiến trình triển khai B05.1 + B06-B10)
+> Ngày cập nhật: 2026-03-24
 
 ---
 
@@ -464,13 +464,53 @@
 ### 2. Group
 | API | Method | Auth | Mô tả |
 | :--- | :--- | :--- | :--- |
+| `/api/v1/groups/my-groups` | GET | Bearer | Danh sách group user đang tham gia |
 | `/api/v1/groups` | POST | Bearer | Tạo group, auto assign MANAGER, sinh joinCode |
 | `/api/v1/groups/{id}/join` | POST | Bearer | Gửi yêu cầu tham gia group theo ID |
 | `/api/v1/groups/join-by-code` | POST | Bearer | Gửi yêu cầu tham gia group theo joinCode |
+| `/api/v1/groups/{id}/members` | GET | Bearer | Danh sách thành viên trong group |
 | `/api/v1/groups/{id}/members/pending` | GET | Bearer (MANAGER) | Lấy danh sách thành viên chờ duyệt |
 | `/api/v1/groups/{id}/members/{memberId}` | PATCH | Bearer (MANAGER) | Duyệt hoặc từ chối thành viên (`APPROVE`/`REJECT`) |
+| `/api/v1/groups/{id}/leave` | DELETE | Bearer | Rời group |
 
-### 3. Admin (Kế hoạch triển khai)
+### 3. Group Manager Audit (B05.1)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{id}/audit-logs` | GET | Bearer (MANAGER) | Nhật ký chi tiết hoạt động trong group (filter + phân trang) |
+| `/api/v1/groups/{id}/audit-logs/summary/daily` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo ngày |
+| `/api/v1/groups/{id}/audit-logs/summary/monthly` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo tháng |
+
+### 4. Position (B06)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/positions` | POST | Bearer (MANAGER) | Tạo vị trí |
+| `/api/v1/groups/{groupId}/positions` | GET | Bearer | Danh sách vị trí |
+| `/api/v1/groups/{groupId}/positions/{positionId}` | PUT | Bearer (MANAGER) | Cập nhật vị trí |
+| `/api/v1/groups/{groupId}/positions/{positionId}` | DELETE | Bearer (MANAGER) | Xóa vị trí |
+
+### 5. Shift Template (B07)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/shift-templates` | POST | Bearer (MANAGER) | Tạo ca mẫu |
+| `/api/v1/groups/{groupId}/shift-templates` | GET | Bearer | Danh sách ca mẫu |
+| `/api/v1/groups/{groupId}/shift-templates/{templateId}` | PUT | Bearer (MANAGER) | Cập nhật ca mẫu |
+| `/api/v1/groups/{groupId}/shift-templates/{templateId}` | DELETE | Bearer (MANAGER) | Xóa ca mẫu |
+
+### 6. Shift (B09)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/shifts` | POST | Bearer (MANAGER) | Tạo ca làm việc |
+| `/api/v1/groups/{groupId}/shifts/bulk` | POST | Bearer (MANAGER) | Tạo ca hàng loạt |
+
+### 7. Shift Requirement (B10)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/shifts/{shiftId}/requirements` | POST | Bearer (MANAGER) | Tạo nhu cầu |
+| `/api/v1/shifts/{shiftId}/requirements` | GET | Bearer | Danh sách nhu cầu của ca |
+| `/api/v1/shifts/{shiftId}/requirements/{requirementId}` | PATCH | Bearer (MANAGER) | Cập nhật nhu cầu |
+| `/api/v1/shifts/{shiftId}/requirements/{requirementId}` | DELETE | Bearer (MANAGER) | Xóa nhu cầu |
+
+### 8. Admin (Kế hoạch triển khai)
 | API | Method | Auth | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `/api/v1/admin/users` | GET | Bearer (ADMIN) | Danh sách user toàn hệ thống, hỗ trợ lọc/phân trang |
@@ -480,13 +520,6 @@
 | `/api/v1/admin/metrics/daily` | GET | Bearer (ADMIN) | Chỉ số vận hành theo ngày |
 | `/api/v1/admin/metrics/monthly` | GET | Bearer (ADMIN) | Chỉ số vận hành theo tháng |
 | `/api/v1/admin/audit-logs` | GET | Bearer (ADMIN) | Lịch sử thao tác quản trị hệ thống |
-
-### 4. Group Manager Audit (Kế hoạch triển khai)
-| API | Method | Auth | Mô tả |
-| :--- | :--- | :--- | :--- |
-| `/api/v1/groups/{id}/audit-logs` | GET | Bearer (MANAGER) | Nhật ký chi tiết hoạt động trong group (filter + phân trang) |
-| `/api/v1/groups/{id}/audit-logs/summary/daily` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo ngày |
-| `/api/v1/groups/{id}/audit-logs/summary/monthly` | GET | Bearer (MANAGER) | Tổng hợp hoạt động group theo tháng |
 
 ---
 
