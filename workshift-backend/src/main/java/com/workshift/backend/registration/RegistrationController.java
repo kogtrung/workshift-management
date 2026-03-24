@@ -59,6 +59,20 @@ public class RegistrationController {
 		return ResponseEntity.ok(ApiResponse.ok("Duyệt đăng ký ca thành công", data));
 	}
 
+	@PatchMapping("/registrations/{id}/reject")
+	public ResponseEntity<ApiResponse<RegistrationResponse>> rejectRegistration(
+			Authentication authentication,
+			@PathVariable("id") Long registrationId,
+			@Valid @RequestBody com.workshift.backend.registration.dto.RejectRegistrationRequest request
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		RegistrationResponse data = registrationService.rejectRegistration(registrationId, authentication.getName(), request);
+		return ResponseEntity.ok(ApiResponse.ok("Từ chối đăng ký ca thành công", data));
+	}
+
 	@GetMapping("/shifts/{id}/registrations/pending")
 	public ResponseEntity<ApiResponse<List<RegistrationResponse>>> getPendingRegistrations(
 			Authentication authentication,

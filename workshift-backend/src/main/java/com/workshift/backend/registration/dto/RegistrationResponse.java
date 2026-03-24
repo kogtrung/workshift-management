@@ -10,14 +10,16 @@ public class RegistrationResponse {
 	private Long positionId;
 	private RegistrationStatus status;
 	private String note;
+	private String managerNote;
 
-	public RegistrationResponse(Long id, Long shiftId, Long userId, Long positionId, RegistrationStatus status, String note) {
+	public RegistrationResponse(Long id, Long shiftId, Long userId, Long positionId, RegistrationStatus status, String note, String managerNote) {
 		this.id = id;
 		this.shiftId = shiftId;
 		this.userId = userId;
 		this.positionId = positionId;
 		this.status = status;
 		this.note = note;
+		this.managerNote = managerNote;
 	}
 
 	public Long getId() {
@@ -66,5 +68,13 @@ public class RegistrationResponse {
 
 	public void setNote(String note) {
 		this.note = note;
+	}
+
+	public String getManagerNote() {
+		return managerNote;
+	}
+
+	public void setManagerNote(String managerNote) {
+		this.managerNote = managerNote;
 	}
 }
