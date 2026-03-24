@@ -7,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +26,8 @@ import com.workshift.backend.group.dto.GroupAuditLogPageResponse;
 import com.workshift.backend.group.dto.GroupAuditMonthlySummaryResponse;
 import com.workshift.backend.group.dto.CreateGroupRequest;
 import com.workshift.backend.group.dto.CreateGroupResponse;
+import com.workshift.backend.group.dto.MyGroupResponse;
+import com.workshift.backend.group.dto.GroupMemberDetailResponse;
 import com.workshift.backend.group.dto.GroupMemberResponse;
 import com.workshift.backend.group.dto.JoinGroupByCodeRequest;
 import com.workshift.backend.group.dto.JoinGroupResponse;
@@ -41,6 +44,16 @@ public class GroupController {
 	public GroupController(GroupService groupService, GroupAuditService groupAuditService) {
 		this.groupService = groupService;
 		this.groupAuditService = groupAuditService;
+	}
+
+	@GetMapping("/my-groups")
+	public ResponseEntity<ApiResponse<List<MyGroupResponse>>> getMyGroups(Authentication authentication) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		List<MyGroupResponse> data = groupService.getMyGroups(authentication.getName());
+		return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách group thành công", data));
 	}
 
 	@PostMapping
@@ -79,8 +92,8 @@ public class GroupController {
 		return ResponseEntity.status(201).body(ApiResponse.created("Gửi yêu cầu tham gia group thành công", data));
 	}
 
-	@GetMapping("/{id}/members/pending")
-	public ResponseEntity<ApiResponse<List<GroupMemberResponse>>> getPendingMembers(
+	@GetMapping("/{id}/members")
+	public ResponseEntity<ApiResponse<List<GroupMemberDetailResponse>>> getMembers(
 			Authentication authentication,
 			@PathVariable("id") Long groupId
 	) {
@@ -88,7 +101,33 @@ public class GroupController {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
 		}
 
-		List<GroupMemberResponse> data = groupService.getPendingMembers(authentication.getName(), groupId);
+		List<GroupMemberDetailResponse> data = groupService.getGroupMembers(authentication.getName(), groupId);
+		return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách thành viên thành công", data));
+	}
+
+	@DeleteMapping("/{id}/leave")
+	public ResponseEntity<ApiResponse<Void>> leaveGroup(
+			Authentication authentication,
+			@PathVariable("id") Long groupId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		groupService.leaveGroup(authentication.getName(), groupId);
+		return ResponseEntity.ok(ApiResponse.ok("Rời group thành công", null));
+	}
+
+	@GetMapping("/{id}/members/pending")
+	public ResponseEntity<ApiResponse<List<GroupMemberDetailResponse>>> getPendingMembers(
+			Authentication authentication,
+			@PathVariable("id") Long groupId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		List<GroupMemberDetailResponse> data = groupService.getPendingMembers(authentication.getName(), groupId);
 		return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách yêu cầu tham gia thành công", data));
 	}
 
