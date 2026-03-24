@@ -397,6 +397,47 @@ class RegistrationServiceTest {
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals("Không thể duyệt đăng ký cho ca đã khóa hoặc hoàn thành", exception.getMessage());
+	@Test
+	void assignShift_success() {
+		com.workshift.backend.registration.dto.AssignShiftRequest assignReq = new com.workshift.backend.registration.dto.AssignShiftRequest();
+		assignReq.setUserId(member.getId());
+		assignReq.setPositionId(position.getId());
+		assignReq.setNote("Force assign test");
+
+		RegistrationResponse response = registrationService.assignShift(shift.getId(), manager.getUsername(), assignReq);
+
+		assertNotNull(response);
+		assertEquals(RegistrationStatus.APPROVED, response.getStatus());
+		assertEquals("Force assign test", response.getNote());
+	}
+
+	@Test
+	void assignShift_fail_notManager() {
+		com.workshift.backend.registration.dto.AssignShiftRequest assignReq = new com.workshift.backend.registration.dto.AssignShiftRequest();
+		assignReq.setUserId(member.getId());
+		assignReq.setPositionId(position.getId());
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.assignShift(shift.getId(), member.getUsername(), assignReq);
+		});
+		assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+		assertEquals("Thao tác yêu cầu quyền Quản lý (MANAGER)", exception.getMessage());
+	}
+	
+	@Test
+	void assignShift_fail_shiftLocked() {
+		shift.setStatus(ShiftStatus.LOCKED);
+		shiftRepository.save(shift);
+
+		com.workshift.backend.registration.dto.AssignShiftRequest assignReq = new com.workshift.backend.registration.dto.AssignShiftRequest();
+		assignReq.setUserId(member.getId());
+		assignReq.setPositionId(position.getId());
+
+		BusinessException exception = assertThrows(BusinessException.class, () -> {
+			registrationService.assignShift(shift.getId(), manager.getUsername(), assignReq);
+		});
+		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+		assertEquals("Không thể gán nhân viên vào ca đã khóa hoặc hoàn thành", exception.getMessage());
 	}
 
 	// ===== B15: rejectRegistration tests =====
