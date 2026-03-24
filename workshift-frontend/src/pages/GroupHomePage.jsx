@@ -90,8 +90,13 @@ export function GroupHomePage() {
         )}
         <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
           <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Ca làm việc</div>
-          <div className="text-4xl font-black text-on-surface tracking-tighter">—</div>
-          <div className="text-xs text-on-surface-variant font-medium mt-1">Sắp triển khai</div>
+          <div className="flex items-center gap-3">
+            <div className="text-4xl font-black text-on-surface tracking-tighter">—</div>
+            <Link to={`/groups/${groupId}/shifts`}
+              className="text-xs font-bold text-primary hover:underline decoration-2 underline-offset-4">
+              Quản lý ca →
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -122,6 +127,51 @@ export function GroupHomePage() {
                 </div>
                 <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary-container group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors">
                   <span className="material-symbols-outlined">person_add</span>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {isManager && (
+            <Link to={`/groups/${groupId}/positions`}
+              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Vị trí làm việc</div>
+                  <div className="text-sm text-on-surface-variant font-medium mt-1">Quản lý vị trí: Pha chế, Thu ngân...</div>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">work</span>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {isManager && (
+            <Link to={`/groups/${groupId}/shift-templates`}
+              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Ca mẫu</div>
+                  <div className="text-sm text-on-surface-variant font-medium mt-1">Cấu hình khung giờ ca mẫu</div>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">schedule</span>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {isManager && (
+            <Link to={`/groups/${groupId}/shifts`}
+              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Quản lý ca</div>
+                  <div className="text-sm text-on-surface-variant font-medium mt-1">Tạo ca và cấu hình nhu cầu nhân sự</div>
+                </div>
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700 group-hover:bg-green-500 group-hover:text-white transition-colors">
+                  <span className="material-symbols-outlined">calendar_month</span>
                 </div>
               </div>
             </Link>
