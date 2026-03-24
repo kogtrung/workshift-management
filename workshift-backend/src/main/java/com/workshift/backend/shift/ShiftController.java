@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.workshift.backend.common.api.ApiResponse;
 import com.workshift.backend.common.exception.BusinessException;
+import com.workshift.backend.shift.dto.CreateShiftBulkRequest;
 import com.workshift.backend.shift.dto.CreateShiftRequest;
 import com.workshift.backend.shift.dto.CreateShiftResponse;
 
@@ -38,5 +39,19 @@ public class ShiftController {
 
 		CreateShiftResponse data = shiftService.createShift(groupId, authentication.getName(), request);
 		return ResponseEntity.status(201).body(ApiResponse.created("Tạo ca làm việc thành công", data));
+	}
+
+	@PostMapping("/bulk")
+	public ResponseEntity<ApiResponse<java.util.List<CreateShiftResponse>>> createShiftBulk(
+			Authentication authentication,
+			@PathVariable("groupId") Long groupId,
+			@Valid @RequestBody CreateShiftBulkRequest request
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		var data = shiftService.createShiftsBulk(groupId, authentication.getName(), request.shifts());
+		return ResponseEntity.status(201).body(ApiResponse.created("Tạo ca làm việc hàng loạt thành công", data));
 	}
 }

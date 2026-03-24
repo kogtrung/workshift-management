@@ -22,10 +22,14 @@ public class Shift extends BaseEntity {
 	@JoinColumn(name = "group_id", nullable = false)
 	private Group group;
 
-	@Column(name = "name", nullable = false, length = 255)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "template_id")
+	private ShiftTemplate template;
+
+	@Column(name = "name", length = 255)
 	private String name;
 
-	@Column(name = "shift_date", nullable = false)
+	@Column(name = "date", nullable = false)
 	private LocalDate date;
 
 	@Column(name = "start_time", nullable = false)
@@ -33,6 +37,9 @@ public class Shift extends BaseEntity {
 
 	@Column(name = "end_time", nullable = false)
 	private LocalTime endTime;
+
+	@Column(name = "note", length = 1000)
+	private String note;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false, length = 20)
@@ -44,6 +51,14 @@ public class Shift extends BaseEntity {
 
 	public void setGroup(Group group) {
 		this.group = group;
+	}
+
+	public ShiftTemplate getTemplate() {
+		return template;
+	}
+
+	public void setTemplate(ShiftTemplate template) {
+		this.template = template;
 	}
 
 	public String getName() {
@@ -76,6 +91,14 @@ public class Shift extends BaseEntity {
 
 	public void setEndTime(LocalTime endTime) {
 		this.endTime = endTime;
+	}
+
+	public String getNote() {
+		return note;
+	}
+
+	public void setNote(String note) {
+		this.note = note;
 	}
 
 	public ShiftStatus getStatus() {
