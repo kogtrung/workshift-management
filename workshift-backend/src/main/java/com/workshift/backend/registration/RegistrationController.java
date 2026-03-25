@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.workshift.backend.common.api.ApiResponse;
 import com.workshift.backend.common.exception.BusinessException;
 import com.workshift.backend.registration.dto.ApproveRegistrationRequest;
+import com.workshift.backend.registration.dto.AssignShiftRequest;
 import com.workshift.backend.registration.dto.RegisterShiftRequest;
+import com.workshift.backend.registration.dto.RejectRegistrationRequest;
 import com.workshift.backend.registration.dto.RegistrationResponse;
 
 import jakarta.validation.Valid;
@@ -45,25 +47,15 @@ public class RegistrationController {
 		return ResponseEntity.status(201).body(ApiResponse.created("Đăng ký ca làm việc thành công", data));
 	}
 
-
 	@PatchMapping("/registrations/{id}/approve")
 	public ResponseEntity<ApiResponse<RegistrationResponse>> approveRegistration(
 			Authentication authentication,
 			@PathVariable("id") Long registrationId,
 			@RequestBody(required = false) ApproveRegistrationRequest request
-
-	@PostMapping("/{id}/assign")
-	public ResponseEntity<ApiResponse<RegistrationResponse>> assignShift(
-			Authentication authentication,
-			@PathVariable("id") Long shiftId,
-			@Valid @RequestBody com.workshift.backend.registration.dto.AssignShiftRequest request
-
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
 		}
-
-
 		RegistrationResponse data = registrationService.approveRegistration(registrationId, authentication.getName(), request);
 		return ResponseEntity.ok(ApiResponse.ok("Duyệt đăng ký ca thành công", data));
 	}
@@ -72,7 +64,7 @@ public class RegistrationController {
 	public ResponseEntity<ApiResponse<RegistrationResponse>> rejectRegistration(
 			Authentication authentication,
 			@PathVariable("id") Long registrationId,
-			@Valid @RequestBody com.workshift.backend.registration.dto.RejectRegistrationRequest request
+			@Valid @RequestBody RejectRegistrationRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
@@ -93,9 +85,19 @@ public class RegistrationController {
 
 		List<RegistrationResponse> data = registrationService.getPendingRegistrations(shiftId, authentication.getName());
 		return ResponseEntity.ok(ApiResponse.ok("Danh sách đăng ký chờ duyệt", data));
+	}
+
+	@PostMapping("/shifts/{id}/assign")
+	public ResponseEntity<ApiResponse<RegistrationResponse>> assignShift(
+			Authentication authentication,
+			@PathVariable("id") Long shiftId,
+			@Valid @RequestBody AssignShiftRequest request
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
 
 		RegistrationResponse data = registrationService.assignShift(shiftId, authentication.getName(), request);
 		return ResponseEntity.status(201).body(ApiResponse.created("Gán nhân viên vào ca thành công", data));
-
 	}
 }

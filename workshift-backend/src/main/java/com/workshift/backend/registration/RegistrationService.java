@@ -36,15 +36,13 @@ public class RegistrationService {
 	private final PositionRepository positionRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final ShiftRequirementRepository shiftRequirementRepository;
-	private final com.workshift.backend.repository.GroupMemberRepository groupMemberRepository;
 
 	public RegistrationService(RegistrationRepository registrationRepository,
 	                           ShiftRepository shiftRepository,
 	                           UserRepository userRepository,
 	                           PositionRepository positionRepository,
 	                           GroupMemberRepository groupMemberRepository,
-	                           ShiftRequirementRepository shiftRequirementRepository,
-	                           com.workshift.backend.repository.GroupMemberRepository groupMemberRepository) {
+	                           ShiftRequirementRepository shiftRequirementRepository) {
 		this.registrationRepository = registrationRepository;
 		this.shiftRepository = shiftRepository;
 		this.userRepository = userRepository;
@@ -259,10 +257,11 @@ public class RegistrationService {
 		Shift shift = shiftRepository.findById(shiftId)
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm việc"));
 
-		com.workshift.backend.domain.GroupMember managerMembership = groupMemberRepository.findByGroupAndUser(shift.getGroup(), manager)
+		Long groupId = shift.getGroup().getId();
+		GroupMember managerMembership = groupMemberRepository.findByGroupIdAndUserId(groupId, manager.getId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc nhóm này"));
 
-		if (!managerMembership.getRole().name().equals("MANAGER")) {
+		if (managerMembership.getRole() != GroupRole.MANAGER || managerMembership.getStatus() != GroupMemberStatus.APPROVED) {
 			throw new BusinessException(HttpStatus.FORBIDDEN, "Thao tác yêu cầu quyền Quản lý (MANAGER)");
 		}
 
@@ -273,8 +272,11 @@ public class RegistrationService {
 		User targetUser = userRepository.findById(request.getUserId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên mục tiêu"));
 
-		com.workshift.backend.domain.GroupMember targetMembership = groupMemberRepository.findByGroupAndUser(shift.getGroup(), targetUser)
+		GroupMember targetMembership = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUser.getId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "Nhân viên mục tiêu không thuộc nhóm này"));
+		if (targetMembership.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Nhân viên mục tiêu chưa được duyệt vào nhóm này");
+		}
 
 		Position position = positionRepository.findById(request.getPositionId())
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí"));
@@ -296,13 +298,6 @@ public class RegistrationService {
 
 		registration = registrationRepository.save(registration);
 
-		return new RegistrationResponse(
-				registration.getId(),
-				shift.getId(),
-				targetUser.getId(),
-				position.getId(),
-				registration.getStatus(),
-				registration.getNote()
-		);
+		return toResponse(registration);
 	}
 }

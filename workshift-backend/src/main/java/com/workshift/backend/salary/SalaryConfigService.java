@@ -51,7 +51,7 @@ public class SalaryConfigService {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhóm"));
 
-        GroupMember membership = groupMemberRepository.findByGroupAndUser(group, user)
+        GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(group.getId(), user.getId())
                 .orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc nhóm này"));
 
         if (!membership.getRole().name().equals("MANAGER")) {
@@ -85,7 +85,7 @@ public class SalaryConfigService {
         if (request.getUserId() != null) {
             targetUser = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên"));
-            groupMemberRepository.findByGroupAndUser(group, targetUser)
+            groupMemberRepository.findByGroupIdAndUserId(group.getId(), targetUser.getId())
                     .orElseThrow(() -> new BusinessException(HttpStatus.BAD_REQUEST, "Nhân viên không thuộc nhóm này"));
         }
 
