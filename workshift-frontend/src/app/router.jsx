@@ -22,6 +22,7 @@ import { MySchedulePage } from '../pages/MySchedulePage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { SalaryConfigPage } from '../pages/SalaryConfigPage'
 import { PayrollPage } from '../pages/PayrollPage'
+import { PerformancePage } from '../pages/PerformancePage'
 import { AlertsPage } from '../pages/AlertsPage'
 import { ShiftChangeRequestsPage } from '../pages/ShiftChangeRequestsPage'
 import { RequireAdmin } from '../features/auth/RequireAdmin'
@@ -80,6 +81,7 @@ export const router = createBrowserRouter([
       { path: 'profile', element: <ProfilePage /> },
       { path: 'salary-configs', element: <SalaryConfigPage /> },
       { path: 'payroll', element: <PayrollPage /> },
+      { path: 'performance', element: <PerformancePage /> },
       { path: 'alerts', element: <AlertsPage /> },
       { path: 'settings', element: <GroupSettingsPage /> },
     ],
