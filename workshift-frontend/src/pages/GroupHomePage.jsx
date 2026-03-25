@@ -1,12 +1,146 @@
-import { useState } from 'react'
-import { Link, useParams, useOutletContext, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
+import { useAuth } from '../features/auth/AuthContext'
 import { leaveGroup } from '../features/groups/groupApi'
+import { getShifts } from '../features/shifts/shiftApi'
+import { getSalaryConfigs } from '../features/salary/salaryApi'
+import { getPositions } from '../features/positions/positionApi'
+
+/* ───── date helpers ───── */
+function startOfWeek(d) {
+  const dt = new Date(d)
+  const day = dt.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  dt.setDate(dt.getDate() + diff)
+  dt.setHours(0, 0, 0, 0)
+  return dt
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+function fmtISO(d) { return d.toISOString().slice(0, 10) }
+function fmtTime(t) { return t ? String(t).substring(0, 5) : '—' }
+function isToday(d) { return fmtISO(d) === fmtISO(new Date()) }
+
+function parseTime(t) {
+  if (!t) return 0
+  const [h, m] = t.split(':').map(Number)
+  return h + m / 60
+}
+function getDuration(s, e) {
+  return Math.max(0, parseTime(e) - parseTime(s))
+}
+function fmtCurrency(val) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+}
+
+const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN']
+const STATUS_CFG = {
+  OPEN: { label: 'Mở', cls: 'bg-emerald-50 border-emerald-200', dot: 'bg-emerald-500' },
+  LOCKED: { label: 'Khóa', cls: 'bg-amber-50 border-amber-200', dot: 'bg-amber-500' },
+  COMPLETED: { label: 'Xong', cls: 'bg-slate-50 border-slate-200', dot: 'bg-slate-400' },
+}
+
+// Chuyển màu HEX thành RGB dùng cho rgba opacity
+function hexToRgba(hex, opacity) {
+  let c = hex.replace('#', '')
+  if (c.length === 3) c = c.split('').map(x => x + x).join('')
+  if (c.length !== 6) return `rgba(200, 200, 200, ${opacity})`
+  const r = parseInt(c.slice(0, 2), 16)
+  const g = parseInt(c.slice(2, 4), 16)
+  const b = parseInt(c.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`
+}
 
 export function GroupHomePage() {
   const { groupId } = useParams()
   const { groupInfo, isManager } = useOutletContext() || {}
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [leaving, setLeaving] = useState(false)
+
+  // Calendar State
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
+  const [shifts, setShifts] = useState([])
+  const [salaries, setSalaries] = useState([])
+  const [positions, setPositions] = useState([])
+  const [loadingShifts, setLoadingShifts] = useState(false)
+
+  useEffect(() => {
+    if (!groupId) return
+    async function fetchData() {
+      setLoadingShifts(true)
+      try {
+        const from = fmtISO(weekStart)
+        const to = fmtISO(addDays(weekStart, 6))
+        
+        const [shiftRes, posRes] = await Promise.all([
+          getShifts(groupId, from, to),
+          getPositions(groupId)
+        ])
+        setShifts(Array.isArray(shiftRes) ? shiftRes : (shiftRes?.data ?? []))
+        setPositions(Array.isArray(posRes) ? posRes : (posRes?.data ?? []))
+        
+        if (isManager) {
+          try {
+            const salRes = await getSalaryConfigs(groupId)
+            setSalaries(Array.isArray(salRes) ? salRes : (salRes?.data ?? []))
+          } catch (e) {
+            console.warn('Salary config fetch failed', e)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load overview data', err)
+      } finally {
+        setLoadingShifts(false)
+      }
+    }
+    fetchData()
+  }, [groupId, isManager, weekStart])
+
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
+  const shiftsByDate = useMemo(() => {
+    const map = {}
+    shifts.forEach(s => {
+      if (!map[s.date]) map[s.date] = []
+      map[s.date].push(s)
+    })
+    return map
+  }, [shifts])
+
+  const metrics = useMemo(() => {
+    let totalHours = 0
+    let totalSalary = 0
+    let totalShifts = 0
+    let shiftIds = new Set()
+
+    shifts.forEach(s => {
+      const dur = getDuration(s.startTime, s.endTime)
+      if (isManager) {
+        shiftIds.add(s.id)
+        if (s.assignedMembers) {
+          s.assignedMembers.forEach(am => {
+            totalHours += dur
+            const config = salaries.find(c => c.positionId === am.positionId)
+            if (config && config.hourlyRate) {
+              totalSalary += dur * parseFloat(config.hourlyRate)
+            }
+          })
+        }
+      } else {
+        // Staff calculation
+        const isMyShift = s.assignedMembers?.some(am => am.userId === user?.id)
+        if (isMyShift) {
+          shiftIds.add(s.id)
+          totalHours += dur
+          // Staff can't see totalSalary for now unless they fetch `/payroll/me`
+        }
+      }
+    })
+    return {
+      totalShifts: shiftIds.size,
+      totalHours: totalHours.toFixed(1),
+      totalSalary // only populated for Manager
+    }
+  }, [shifts, salaries, isManager, user])
 
   async function handleLeave() {
     if (!confirm('Bạn có chắc chắn muốn rời group này?')) return
@@ -21,20 +155,19 @@ export function GroupHomePage() {
     }
   }
 
+  // Determine which shifts a member sees. Managers see all. Staff sees all to know schedule, but we highlight theirs.
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full space-y-6">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant opacity-70">
             {isManager ? 'Manager Dashboard' : 'Staff Dashboard'}
           </p>
-          <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">
-            {groupInfo?.groupName || `Group #${groupId}`}
+          <h2 className="text-2xl font-extrabold text-on-surface tracking-tight">
+            Tổng quan Tuần
           </h2>
-          {groupInfo?.description && (
-            <p className="text-on-surface-variant font-medium">{groupInfo.description}</p>
-          )}
+          <p className="text-sm text-on-surface-variant font-medium">Lịch làm việc và thống kê {isManager ? 'nhóm' : 'cá nhân'} của tuần hiện tại.</p>
         </div>
 
         {/* Leave group button for Staff */}
@@ -42,154 +175,165 @@ export function GroupHomePage() {
           <button
             onClick={handleLeave}
             disabled={leaving}
-            className="px-5 py-2.5 bg-surface-container-lowest text-error font-semibold rounded-lg border border-error/20 hover:bg-error/5 transition-colors flex items-center gap-2 self-start"
+            className="px-4 py-2 bg-surface-container-lowest text-error font-semibold rounded-lg border border-error/20 hover:bg-error/5 transition-colors flex items-center gap-2 self-start"
           >
             <span className="material-symbols-outlined text-sm">logout</span>
-            <span>{leaving ? 'Đang rời...' : 'Rời group'}</span>
+            <span className="text-sm">{leaving ? 'Đang rời...' : 'Rời group'}</span>
           </button>
         )}
       </div>
 
-      {/* Join Code Card */}
-      {groupInfo?.joinCode && (
-        <div className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 shadow-[0_24px_48px_rgba(0,52,94,0.06)] inline-flex items-center gap-6">
-          <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
-            <span className="material-symbols-outlined">vpn_key</span>
+      {/* Weekly Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 bg-surface-container-lowest rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.03)] border border-outline/10 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-16 h-16 bg-primary/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+          <div className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase mb-2 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-primary text-sm">event_note</span>
+            Số ca {isManager ? 'của tuần' : 'đã trực'}
           </div>
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Mã tham gia Group</p>
-            <p className="text-2xl font-black text-primary tracking-[0.15em]">{groupInfo.joinCode}</p>
-            <p className="text-xs text-on-surface-variant mt-1">Chia sẻ mã này để mời thành viên mới</p>
-          </div>
-        </div>
-      )}
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
-          <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Thành viên</div>
-          <div className="flex items-center gap-3">
-            <div className="text-4xl font-black text-on-surface tracking-tighter">—</div>
-            <Link to={`/groups/${groupId}/members`}
-              className="text-xs font-bold text-primary hover:underline decoration-2 underline-offset-4">
-              Xem danh sách →
-            </Link>
+          <div className="flex items-end gap-2">
+            <div className="text-3xl font-black text-on-surface tracking-tighter">{metrics.totalShifts}</div>
+            <div className="text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-widest">Ca</div>
           </div>
         </div>
+        
+        <div className="p-4 bg-surface-container-lowest rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.03)] border border-outline/10 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-16 h-16 bg-tertiary/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+          <div className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase mb-2 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-tertiary text-sm">schedule</span>
+            Tổng giờ làm
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="text-3xl font-black text-on-surface tracking-tighter">{metrics.totalHours}</div>
+            <div className="text-xs font-bold text-on-surface-variant mb-1 uppercase tracking-widest">Giờ</div>
+          </div>
+        </div>
+        
         {isManager && (
-          <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
-            <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Chờ duyệt</div>
-            <div className="flex items-center gap-3">
-              <div className="text-4xl font-black text-on-surface tracking-tighter">—</div>
-              <Link to={`/groups/${groupId}/members/pending`}
-                className="text-xs font-bold text-primary hover:underline decoration-2 underline-offset-4">
-                Xem ngay →
-              </Link>
+          <div className="p-4 bg-surface-container-lowest rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.03)] border border-outline/10 relative overflow-hidden group">
+            <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+            <div className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase mb-2 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-emerald-600 text-sm">payments</span>
+              Chi phí ước tính
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-black text-emerald-700 tracking-tighter">{fmtCurrency(metrics.totalSalary)}</div>
             </div>
           </div>
         )}
-        <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
-          <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Ca làm việc</div>
-          <div className="flex items-center gap-3">
-            <div className="text-4xl font-black text-on-surface tracking-tighter">—</div>
-            <Link to={`/groups/${groupId}/shifts`}
-              className="text-xs font-bold text-primary hover:underline decoration-2 underline-offset-4">
-              Quản lý ca →
-            </Link>
-          </div>
-        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h3 className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-4">Thao tác nhanh</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link to={`/groups/${groupId}/members`}
-            className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-lg font-extrabold text-on-surface tracking-tight">Danh sách thành viên</div>
-                <div className="text-sm text-on-surface-variant font-medium mt-1">Xem tất cả thành viên trong group</div>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container group-hover:bg-primary group-hover:text-on-primary transition-colors">
-                <span className="material-symbols-outlined">group</span>
-              </div>
+      {/* ═══ Weekly Overview Calendar ═══ */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="text-sm font-extrabold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[18px]">calendar_view_week</span>
+            Làm việc trong tuần
+          </h3>
+          <div className="flex items-center gap-2 bg-surface-container-low rounded-xl p-1 border border-outline/10">
+            <button onClick={() => setWeekStart(d => addDays(d, -7))} className="p-1 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface">
+              <span className="material-symbols-outlined text-sm">chevron_left</span>
+            </button>
+            <div className="px-3 text-xs font-bold text-on-surface">
+              {fmtISO(weekStart)} – {fmtISO(addDays(weekStart, 6))}
             </div>
-          </Link>
-
-          {isManager && (
-            <Link to={`/groups/${groupId}/members/pending`}
-              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Duyệt thành viên</div>
-                  <div className="text-sm text-on-surface-variant font-medium mt-1">Xem yêu cầu tham gia group</div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary-container group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors">
-                  <span className="material-symbols-outlined">person_add</span>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {isManager && (
-            <Link to={`/groups/${groupId}/positions`}
-              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Vị trí làm việc</div>
-                  <div className="text-sm text-on-surface-variant font-medium mt-1">Quản lý vị trí: Pha chế, Thu ngân...</div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                  <span className="material-symbols-outlined">work</span>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {isManager && (
-            <Link to={`/groups/${groupId}/shift-templates`}
-              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Ca mẫu</div>
-                  <div className="text-sm text-on-surface-variant font-medium mt-1">Cấu hình khung giờ ca mẫu</div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                  <span className="material-symbols-outlined">schedule</span>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {isManager && (
-            <Link to={`/groups/${groupId}/shifts`}
-              className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-extrabold text-on-surface tracking-tight">Quản lý ca</div>
-                  <div className="text-sm text-on-surface-variant font-medium mt-1">Tạo ca và cấu hình nhu cầu nhân sự</div>
-                </div>
-                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700 group-hover:bg-green-500 group-hover:text-white transition-colors">
-                  <span className="material-symbols-outlined">calendar_month</span>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          <Link to={`/groups/${groupId}/audit-logs`}
-            className="bg-surface-container-lowest rounded-2xl p-6 border border-outline/10 hover:bg-surface-container-low transition-all shadow-[0_24px_48px_rgba(0,52,94,0.06)] group">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-lg font-extrabold text-on-surface tracking-tight">Audit Timeline</div>
-                <div className="text-sm text-on-surface-variant font-medium mt-1">Nhật ký hoạt động group</div>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface group-hover:bg-primary group-hover:text-on-primary transition-colors">
-                <span className="material-symbols-outlined">history</span>
-              </div>
-            </div>
-          </Link>
+            <button onClick={() => setWeekStart(d => addDays(d, 7))} className="p-1 hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant hover:text-on-surface">
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </button>
+          </div>
         </div>
+
+        {/* Legend */}
+        {positions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 py-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mr-1">Vị trí:</span>
+            {positions.map(p => (
+              <div key={p.id} className="flex items-center gap-1.5 bg-surface-container-lowest px-2 py-1 border border-outline/10 rounded-md shadow-sm">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.colorCode || '#ccc' }}></div>
+                <span className="text-[10px] font-bold text-on-surface">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loadingShifts ? (
+          <div className="text-center py-12 bg-surface-container-lowest rounded-2xl border border-outline/10"><p className="text-on-surface-variant animate-pulse font-bold tracking-widest uppercase text-xs">Đang tải lịch tuần...</p></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-2">
+            {weekDays.map((day, idx) => {
+              const key = fmtISO(day)
+              const dayShifts = shiftsByDate[key] || []
+              const today = isToday(day)
+              return (
+                <div key={key} className={`rounded-lg border transition-all flex flex-col ${today ? 'bg-primary-container/10 border-primary/30 ring-1 ring-primary/20' : 'bg-surface-container-lowest border-outline/5 hover:border-outline/20'}`}>
+                  <div className={`px-2 py-1.5 border-b flex items-center justify-between ${today ? 'border-primary/20' : 'border-outline/5'}`}>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${today ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface'}`}>
+                        {day.getDate()}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                        {DAY_LABELS[idx]}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 p-1.5 space-y-1.5">
+                    {dayShifts.length === 0 && (
+                      <div className="flex items-center justify-center py-4">
+                        <p className="text-[9px] text-on-surface-variant opacity-30 uppercase tracking-widest font-bold">Trống</p>
+                      </div>
+                    )}
+                    
+                    {dayShifts.map(shift => {
+                      const st = STATUS_CFG[shift.status] || STATUS_CFG.OPEN
+                      const assigned = shift.assignedMembers || []
+                      const isMyShift = assigned.some(am => am.userId === user?.id)
+                      
+                      return (
+                        <div key={shift.id} className={`rounded border p-2 transition-colors ${st.cls} ${!isManager && !isMyShift ? 'opacity-50 grayscale flex-shrink-0' : 'shadow-sm'}`}>
+                          <div className="flex items-center gap-1 mb-0.5">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />
+                            <span className="text-[10px] font-extrabold text-on-surface truncate" title={shift.name}>{shift.name || 'Ca'}</span>
+                            {!isManager && isMyShift && (
+                              <span className="ml-auto material-symbols-outlined text-[12px] text-primary" title="Ca của tôi">person</span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-on-surface-variant font-black tracking-widest mb-1.5 pl-2.5">
+                            {fmtTime(shift.startTime)}-{fmtTime(shift.endTime)}
+                          </p>
+                          
+                          {/* Colored Badges for Assigned Members */}
+                          {assigned.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {assigned.map(am => {
+                                const color = am.colorCode || '#888888'
+                                const bgColor = hexToRgba(color, 0.15)
+                                return (
+                                  <div key={am.userId} 
+                                       className="flex items-center px-1.5 py-0.5 rounded-[4px] border"
+                                       style={{ backgroundColor: bgColor, borderColor: hexToRgba(color, 0.3) }}
+                                       title={am.positionName}>
+                                    <span className="truncate text-[9px] font-bold w-full" style={{ color: color }}>
+                                      {am.fullName}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="pl-2.5">
+                              <span className="text-[9px] text-on-surface-variant opacity-60 font-medium italic">Chưa xếp người</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

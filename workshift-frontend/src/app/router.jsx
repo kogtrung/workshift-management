@@ -17,6 +17,12 @@ import { RegisterPage } from '../pages/RegisterPage'
 import { ShiftTemplatesPage } from '../pages/ShiftTemplatesPage'
 import { ShiftsPage } from '../pages/ShiftsPage'
 import { GroupSettingsPage } from '../pages/GroupSettingsPage'
+import { AvailabilityPage } from '../pages/AvailabilityPage'
+import { MySchedulePage } from '../pages/MySchedulePage'
+import { ProfilePage } from '../pages/ProfilePage'
+import { SalaryConfigPage } from '../pages/SalaryConfigPage'
+import { PayrollPage } from '../pages/PayrollPage'
+import { AlertsPage } from '../pages/AlertsPage'
 
 export const router = createBrowserRouter([
   {
@@ -60,7 +66,13 @@ export const router = createBrowserRouter([
       { path: 'positions', element: <PositionsPage /> },
       { path: 'shift-templates', element: <ShiftTemplatesPage /> },
       { path: 'shifts', element: <ShiftsPage /> },
+      { path: 'availability', element: <AvailabilityPage /> },
+      { path: 'my-schedule', element: <MySchedulePage /> },
       { path: 'audit-logs', element: <AuditLogsPage /> },
+      { path: 'profile', element: <ProfilePage /> },
+      { path: 'salary-configs', element: <SalaryConfigPage /> },
+      { path: 'payroll', element: <PayrollPage /> },
+      { path: 'alerts', element: <AlertsPage /> },
       { path: 'settings', element: <GroupSettingsPage /> },
     ],
   },

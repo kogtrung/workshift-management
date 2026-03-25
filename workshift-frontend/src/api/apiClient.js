@@ -1,8 +1,44 @@
-import { getAccessToken } from "../features/auth/authStorage";
+import { getAccessToken, getAuthTokens, setAuthTokens, clearAuthTokens } from "../features/auth/authStorage";
 
 const DEFAULT_BASE_URL = "http://localhost:8080/api/v1";
 
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, "");
+
+let refreshPromise = null;
+
+async function tryRefreshToken() {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const tokens = getAuthTokens();
+      if (!tokens?.refreshToken) throw new Error("No refresh token");
+
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+      });
+
+      if (!res.ok) throw new Error("Refresh failed");
+
+      const payload = await res.json();
+      const newTokens = payload?.data || payload;
+      if (!newTokens?.accessToken || !newTokens?.refreshToken) throw new Error("Invalid refresh response");
+
+      setAuthTokens(newTokens);
+      return newTokens.accessToken;
+    } catch {
+      clearAuthTokens();
+      window.location.href = "/auth/login";
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
 
 export async function apiFetch(path, options = {}) {
   const urlPath = String(path || "").startsWith("/") ? path : `/${path}`;
@@ -19,10 +55,20 @@ export async function apiFetch(path, options = {}) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  let response = await fetch(url, { ...options, headers });
+
+  // Auto-refresh on 401
+  if (response.status === 401 && !path.includes("/auth/")) {
+    const newAccessToken = await tryRefreshToken();
+    if (newAccessToken) {
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
+      if (!retryHeaders.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
+        retryHeaders.set("Content-Type", "application/json");
+      }
+      response = await fetch(url, { ...options, headers: retryHeaders });
+    }
+  }
 
   const contentType = response.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
