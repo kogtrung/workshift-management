@@ -41,6 +41,8 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
 	List<Registration> findByShiftIdAndStatus(Long shiftId, RegistrationStatus status);
 
+	List<Registration> findByShiftIdInAndStatus(java.util.Collection<Long> shiftIds, RegistrationStatus status);
+
 	@Query("""
 			select r.shift.id, r.position.id, count(r)
 			from Registration r
@@ -66,4 +68,6 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 			@Param("groupId") Long groupId,
 			@Param("from") LocalDate from,
 			@Param("to") LocalDate to);
+
+	void deleteByShiftId(Long shiftId);
 }

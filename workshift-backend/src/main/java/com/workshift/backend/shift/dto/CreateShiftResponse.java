@@ -20,6 +20,12 @@ public class CreateShiftResponse {
 	private ShiftStatus status;
 	private List<ShiftRequirementResponse> requirements;
 	private int totalRequired;
+	private List<AssignedMemberResponse> assignedMembers;
+
+	public CreateShiftResponse() {
+		this.requirements = new java.util.ArrayList<>();
+		this.assignedMembers = new java.util.ArrayList<>();
+	}
 
 	public Long getId() {
 		return id;
@@ -107,5 +113,13 @@ public class CreateShiftResponse {
 
 	public void setTotalRequired(int totalRequired) {
 		this.totalRequired = totalRequired;
+	}
+
+	public List<AssignedMemberResponse> getAssignedMembers() {
+		return assignedMembers;
+	}
+
+	public void setAssignedMembers(List<AssignedMemberResponse> assignedMembers) {
+		this.assignedMembers = assignedMembers;
 	}
 }

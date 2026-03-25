@@ -1,6 +1,7 @@
 package com.workshift.backend.shift.dto.template;
 
 import java.time.LocalTime;
+import java.util.List;
 
 import org.hibernate.validator.constraints.Length;
 
@@ -19,6 +20,9 @@ public record CreateShiftTemplateRequest(
 		LocalTime endTime,
 
 		@Length(max = 1000, message = "Mô tả không được vượt quá 1000 ký tự")
-		String description
+		String description,
+
+		List<TemplateRequirementItem> requirements
 ) {
 }
+

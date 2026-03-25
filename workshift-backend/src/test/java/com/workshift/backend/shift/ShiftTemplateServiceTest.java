@@ -69,7 +69,7 @@ class ShiftTemplateServiceTest {
 
 	@Test
 	void createTemplate_Success() {
-		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả", null);
 
 		when(userRepository.findByUsername("manager_user")).thenReturn(Optional.of(mockUser));
 		when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(mockMembership));
@@ -95,7 +95,7 @@ class ShiftTemplateServiceTest {
 	@Test
 	void createTemplate_FailsWhenNotManager() {
 		mockMembership.setRole(GroupRole.MEMBER);
-		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả", null);
 
 		when(userRepository.findByUsername("manager_user")).thenReturn(Optional.of(mockUser));
 		when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(mockMembership));

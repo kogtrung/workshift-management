@@ -89,5 +89,19 @@ public class ShiftController {
 		List<AvailableShiftResponse> data = shiftService.getAvailableShifts(groupId, authentication.getName());
 		return ResponseEntity.ok(ApiResponse.ok("Danh sách ca phù hợp", data));
 	}
+
+	@org.springframework.web.bind.annotation.DeleteMapping("/{shiftId}")
+	public ResponseEntity<ApiResponse<Void>> deleteShift(
+			Authentication authentication,
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("shiftId") Long shiftId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		shiftService.deleteShift(groupId, authentication.getName(), shiftId);
+		return ResponseEntity.ok(ApiResponse.ok("Xóa ca làm việc thành công", null));
+	}
 }
 

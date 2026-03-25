@@ -24,6 +24,7 @@ import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.PositionRepository;
 import com.workshift.backend.repository.ShiftRepository;
 import com.workshift.backend.repository.ShiftRequirementRepository;
+import com.workshift.backend.repository.MemberPositionRepository;
 import com.workshift.backend.repository.UserRepository;
 
 @Service
@@ -36,20 +37,22 @@ public class RegistrationService {
 	private final PositionRepository positionRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final ShiftRequirementRepository shiftRequirementRepository;
+	private final MemberPositionRepository memberPositionRepository;
 
 	public RegistrationService(RegistrationRepository registrationRepository,
 	                           ShiftRepository shiftRepository,
 	                           UserRepository userRepository,
 	                           PositionRepository positionRepository,
 	                           GroupMemberRepository groupMemberRepository,
-	                           ShiftRequirementRepository shiftRequirementRepository) {
+	                           ShiftRequirementRepository shiftRequirementRepository,
+	                           MemberPositionRepository memberPositionRepository) {
 		this.registrationRepository = registrationRepository;
 		this.shiftRepository = shiftRepository;
 		this.userRepository = userRepository;
 		this.positionRepository = positionRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.shiftRequirementRepository = shiftRequirementRepository;
-
+		this.memberPositionRepository = memberPositionRepository;
 	}
 
 	public RegistrationResponse registerShift(Long shiftId, String username, RegisterShiftRequest request) {
@@ -72,6 +75,14 @@ public class RegistrationService {
 
 		if (registrationRepository.existsByShiftAndUser(shift, user)) {
 			throw new BusinessException(HttpStatus.BAD_REQUEST, "Bạn đã đăng ký ca này rồi");
+		}
+
+		// Kiểm tra nhân viên đã khai báo vị trí này chưa
+		GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(shift.getGroup().getId(), user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không thuộc nhóm này"));
+		if (!memberPositionRepository.existsByGroupMemberIdAndPositionId(membership.getId(), position.getId())) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST,
+					"Bạn chưa khai báo vị trí \"" + position.getName() + "\". Vui lòng cập nhật vị trí của bạn trước khi đăng ký ca.");
 		}
 
 		Registration registration = new Registration();

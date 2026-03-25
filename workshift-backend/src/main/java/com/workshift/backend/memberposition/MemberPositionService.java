@@ -81,6 +81,7 @@ public class MemberPositionService {
 		// Remove existing positions
 		List<MemberPosition> existing = memberPositionRepository.findAllByGroupMemberId(membership.getId());
 		memberPositionRepository.deleteAll(existing);
+		memberPositionRepository.flush();
 
 		// Add new positions
 		List<MemberPosition> newMemberPositions = positionIds.stream().map(posId -> {
