@@ -53,7 +53,7 @@ public class SalaryConfigController {
         }
 
         List<SalaryConfigResponse> data = salaryConfigService.getConfigs(groupId, authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách cấu hình lương thành công", data));
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách cấu hình lương thành công", data));
     }
 
     @DeleteMapping("/{configId}")
@@ -67,6 +67,6 @@ public class SalaryConfigController {
         }
 
         salaryConfigService.deleteConfig(groupId, configId, authentication.getName());
-        return ResponseEntity.ok(ApiResponse.success("Xóa cấu hình lương thành công", null));
+        return ResponseEntity.ok(ApiResponse.ok("Xóa cấu hình lương thành công", null));
     }
 }

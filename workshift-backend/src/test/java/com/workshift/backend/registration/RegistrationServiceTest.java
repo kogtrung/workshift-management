@@ -395,8 +395,9 @@ class RegistrationServiceTest {
 		});
 
 		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
-		assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
 		assertEquals("Không thể duyệt đăng ký cho ca đã khóa hoặc hoàn thành", exception.getMessage());
+	}
+
 	@Test
 	void assignShift_success() {
 		com.workshift.backend.registration.dto.AssignShiftRequest assignReq = new com.workshift.backend.registration.dto.AssignShiftRequest();
@@ -408,7 +409,7 @@ class RegistrationServiceTest {
 
 		assertNotNull(response);
 		assertEquals(RegistrationStatus.APPROVED, response.getStatus());
-		assertEquals("Force assign test", response.getNote());
+		assertEquals("Force assign test", response.getManagerNote());
 	}
 
 	@Test
