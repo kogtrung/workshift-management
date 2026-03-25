@@ -1,5 +1,6 @@
 package com.workshift.backend.repository;
 
+import java.time.DayOfWeek;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,11 @@ import com.workshift.backend.domain.Availability;
 public interface AvailabilityRepository extends JpaRepository<Availability, Long> {
 
 	List<Availability> findByUserId(Long userId);
+
+	@Query("SELECT a FROM Availability a WHERE a.user.id IN :userIds AND a.dayOfWeek = :dayOfWeek")
+	List<Availability> findByUserIdInAndDayOfWeek(
+			@Param("userIds") List<Long> userIds,
+			@Param("dayOfWeek") DayOfWeek dayOfWeek);
 
 	@Modifying
 	@Query("DELETE FROM Availability a WHERE a.user.id = :userId")
