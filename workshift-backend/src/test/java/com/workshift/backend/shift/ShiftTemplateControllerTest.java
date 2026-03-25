@@ -33,8 +33,8 @@ class ShiftTemplateControllerTest {
 	@Test
 	void createTemplate_ReturnsCreated() {
 		Authentication authentication = new UsernamePasswordAuthenticationToken("manager", "N/A", java.util.List.of(() -> "ROLE_USER"));
-		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
-		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		CreateShiftTemplateRequest req = new CreateShiftTemplateRequest("Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả", null);
+		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả", null);
 
 		when(shiftTemplateService.createTemplate(eq("manager"), eq(10L), any(CreateShiftTemplateRequest.class))).thenReturn(res);
 
@@ -49,7 +49,7 @@ class ShiftTemplateControllerTest {
 	@Test
 	void getTemplates_ReturnsOk() {
 		Authentication authentication = new UsernamePasswordAuthenticationToken("member", "N/A", java.util.List.of(() -> "ROLE_USER"));
-		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả");
+		ShiftTemplateResponse res = new ShiftTemplateResponse(1L, 10L, "Ca Sáng", LocalTime.of(8, 0), LocalTime.of(12, 0), "Mô tả", null);
 		when(shiftTemplateService.getTemplates("member", 10L)).thenReturn(List.of(res));
 
 		var response = shiftTemplateController.getTemplates(authentication, 10L);

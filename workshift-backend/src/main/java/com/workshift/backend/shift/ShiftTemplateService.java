@@ -1,5 +1,6 @@
 package com.workshift.backend.shift;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -11,14 +12,20 @@ import com.workshift.backend.domain.Group;
 import com.workshift.backend.domain.GroupMember;
 import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
+import com.workshift.backend.domain.Position;
 import com.workshift.backend.domain.ShiftTemplate;
+import com.workshift.backend.domain.TemplateRequirement;
 import com.workshift.backend.domain.User;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
+import com.workshift.backend.repository.PositionRepository;
 import com.workshift.backend.repository.ShiftTemplateRepository;
+import com.workshift.backend.repository.TemplateRequirementRepository;
 import com.workshift.backend.repository.UserRepository;
 import com.workshift.backend.shift.dto.template.CreateShiftTemplateRequest;
 import com.workshift.backend.shift.dto.template.ShiftTemplateResponse;
+import com.workshift.backend.shift.dto.template.TemplateRequirementItem;
+import com.workshift.backend.shift.dto.template.TemplateRequirementResponse;
 import com.workshift.backend.shift.dto.template.UpdateShiftTemplateRequest;
 
 @Service
@@ -28,17 +35,23 @@ public class ShiftTemplateService {
 	private final GroupRepository groupRepository;
 	private final UserRepository userRepository;
 	private final GroupMemberRepository groupMemberRepository;
+	private final TemplateRequirementRepository templateRequirementRepository;
+	private final PositionRepository positionRepository;
 
 	public ShiftTemplateService(
 			ShiftTemplateRepository shiftTemplateRepository,
 			GroupRepository groupRepository,
 			UserRepository userRepository,
-			GroupMemberRepository groupMemberRepository
+			GroupMemberRepository groupMemberRepository,
+			TemplateRequirementRepository templateRequirementRepository,
+			PositionRepository positionRepository
 	) {
 		this.shiftTemplateRepository = shiftTemplateRepository;
 		this.groupRepository = groupRepository;
 		this.userRepository = userRepository;
 		this.groupMemberRepository = groupMemberRepository;
+		this.templateRequirementRepository = templateRequirementRepository;
+		this.positionRepository = positionRepository;
 	}
 
 	@Transactional
@@ -69,7 +82,21 @@ public class ShiftTemplateService {
 
 		ShiftTemplate saved = shiftTemplateRepository.save(template);
 
-		return toResponse(saved);
+		// Save template requirements if provided
+		List<TemplateRequirement> savedReqs = new ArrayList<>();
+		if (request.requirements() != null && !request.requirements().isEmpty()) {
+			for (TemplateRequirementItem item : request.requirements()) {
+				Position pos = positionRepository.findByIdAndGroupId(item.positionId(), groupId)
+						.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí: " + item.positionId()));
+				TemplateRequirement tr = new TemplateRequirement();
+				tr.setTemplate(saved);
+				tr.setPosition(pos);
+				tr.setQuantity(item.quantity());
+				savedReqs.add(templateRequirementRepository.save(tr));
+			}
+		}
+
+		return toResponse(saved, savedReqs);
 	}
 
 	@Transactional(readOnly = true)
@@ -79,8 +106,9 @@ public class ShiftTemplateService {
 
 		validateMemberPermission(groupId, user.getId());
 
-		return shiftTemplateRepository.findByGroupId(groupId).stream()
-				.map(this::toResponse)
+		List<ShiftTemplate> templates = shiftTemplateRepository.findByGroupId(groupId);
+		return templates.stream()
+				.map(t -> toResponse(t, templateRequirementRepository.findByTemplateId(t.getId())))
 				.toList();
 	}
 
@@ -108,7 +136,23 @@ public class ShiftTemplateService {
 		template.setEndTime(request.endTime());
 		template.setDescription(request.description() != null ? request.description().trim() : null);
 
-		return toResponse(template);
+		// Update requirements: delete old, save new
+		templateRequirementRepository.deleteByTemplateId(templateId);
+		templateRequirementRepository.flush();
+		List<TemplateRequirement> savedReqs = new ArrayList<>();
+		if (request.requirements() != null && !request.requirements().isEmpty()) {
+			for (TemplateRequirementItem item : request.requirements()) {
+				Position pos = positionRepository.findByIdAndGroupId(item.positionId(), groupId)
+						.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy vị trí: " + item.positionId()));
+				TemplateRequirement tr = new TemplateRequirement();
+				tr.setTemplate(template);
+				tr.setPosition(pos);
+				tr.setQuantity(item.quantity());
+				savedReqs.add(templateRequirementRepository.save(tr));
+			}
+		}
+
+		return toResponse(template, savedReqs);
 	}
 
 	@Transactional
@@ -121,17 +165,28 @@ public class ShiftTemplateService {
 		ShiftTemplate template = shiftTemplateRepository.findByIdAndGroupId(templateId, groupId)
 				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy ca mẫu"));
 
+		templateRequirementRepository.deleteByTemplateId(templateId);
 		shiftTemplateRepository.delete(template);
 	}
 
-	private ShiftTemplateResponse toResponse(ShiftTemplate template) {
+	private ShiftTemplateResponse toResponse(ShiftTemplate template, List<TemplateRequirement> reqs) {
+		List<TemplateRequirementResponse> reqResponses = reqs == null ? List.of() : reqs.stream()
+				.map(r -> new TemplateRequirementResponse(
+						r.getId(),
+						r.getPosition().getId(),
+						r.getPosition().getName(),
+						r.getPosition().getColorCode(),
+						r.getQuantity()
+				))
+				.toList();
 		return new ShiftTemplateResponse(
 				template.getId(),
 				template.getGroup().getId(),
 				template.getName(),
 				template.getStartTime(),
 				template.getEndTime(),
-				template.getDescription()
+				template.getDescription(),
+				reqResponses
 		);
 	}
 

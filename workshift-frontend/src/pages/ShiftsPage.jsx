@@ -1,9 +1,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { getTemplates } from '../features/shifts/shiftTemplateApi'
-import { getShifts, createShift } from '../features/shifts/shiftApi'
+import { getShifts, createShift, createShiftsBulk, deleteShift } from '../features/shifts/shiftApi'
 import { getPositions } from '../features/positions/positionApi'
 import { getRequirements, createRequirement, deleteRequirement } from '../features/shifts/shiftRequirementApi'
+import { registerShift, getPendingRegistrations, approveRegistration, rejectRegistration, assignShift } from '../features/registrations/registrationApi'
+import { getMyPositions } from '../features/memberPosition/memberPositionApi'
+import { getGroupMembers } from '../features/groups/groupApi'
 
 /* ───── date helpers ───── */
 function startOfWeek(d) {
@@ -59,12 +62,57 @@ export function ShiftsPage() {
   const [addingReq, setAddingReq] = useState(false)
   const [reqErr, setReqErr] = useState(null)
 
-  // coming soon toast
-  const [showToast, setShowToast] = useState(false)
-  function handleRegisterClick(e) {
+  // B14/B15: pending registrations
+  const [pendingRegs, setPendingRegs] = useState([])
+  const [loadingPending, setLoadingPending] = useState(false)
+  const [actioningId, setActioningId] = useState(null)
+
+  // B16: assign shift
+  const [members, setMembers] = useState([])
+  const [assignUserId, setAssignUserId] = useState('')
+  const [assignPosId, setAssignPosId] = useState('')
+  const [assignNote, setAssignNote] = useState('')
+  const [assigning, setAssigning] = useState(false)
+  const [assignErr, setAssignErr] = useState(null)
+
+  // Panel Tabs
+  const [activeTab, setActiveTab] = useState('requirements') // 'requirements', 'pending', 'assign'
+
+  // registration modal
+  const [regShift, setRegShift] = useState(null)
+  const [regPosId, setRegPosId] = useState('')
+  const [regNote, setRegNote] = useState('')
+  const [registering, setRegistering] = useState(false)
+  const [regErr, setRegErr] = useState(null)
+  const [myPositions, setMyPositions] = useState([])
+  const [loadingMyPos, setLoadingMyPos] = useState(false)
+  const [regToast, setRegToast] = useState(null)
+
+  function showRegToast(msg) { setRegToast(msg); setTimeout(() => setRegToast(null), 3500) }
+
+  async function handleRegisterClick(e, shift) {
     e.stopPropagation()
-    setShowToast(true)
-    setTimeout(() => setShowToast(false), 3000)
+    setRegShift(shift)
+    setRegPosId(''); setRegNote(''); setRegErr(null)
+    setLoadingMyPos(true)
+    try {
+      const res = await getMyPositions(groupId)
+      setMyPositions(Array.isArray(res) ? res : (res?.data ?? []))
+    } catch { setMyPositions([]) }
+    finally { setLoadingMyPos(false) }
+  }
+
+  async function handleRegisterSubmit(e) {
+    e.preventDefault()
+    if (!regPosId) { setRegErr('Chọn vị trí đăng ký'); return }
+    setRegistering(true); setRegErr(null)
+    try {
+      await registerShift(regShift.id, Number(regPosId), regNote.trim() || null)
+      showRegToast('Đăng ký ca thành công! Chờ Manager duyệt.')
+      setRegShift(null)
+    } catch (err) {
+      setRegErr(err?.message || 'Không thể đăng ký ca')
+    } finally { setRegistering(false) }
   }
 
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart])
@@ -111,9 +159,19 @@ export function ShiftsPage() {
   /* ───── create shift ───── */
   function openCreateForDate(dateStr) {
     setCreateDate(dateStr || '')
+    setSelectMultiDays(false)
+    setSelectedDays([])
     setFormName(''); setFormStart(''); setFormEnd(''); setFormTpl(''); setFormNote('')
     setCreateErr(null)
     setShowCreate(true)
+  }
+
+  // bulk create state
+  const [selectMultiDays, setSelectMultiDays] = useState(false)
+  const [selectedDays, setSelectedDays] = useState([])
+
+  function toggleDaySelection(dayStr) {
+    setSelectedDays(prev => prev.includes(dayStr) ? prev.filter(d => d !== dayStr) : [...prev, dayStr])
   }
 
   function handleTplChange(v) {
@@ -126,29 +184,71 @@ export function ShiftsPage() {
 
   async function handleCreate(e) {
     e.preventDefault()
-    if (!createDate) { setCreateErr('Chọn ngày'); return }
+    if (!selectMultiDays && !createDate) { setCreateErr('Chọn ngày'); return }
+    if (selectMultiDays && selectedDays.length === 0) { setCreateErr('Chọn ít nhất một ngày'); return }
     if (!formTpl && (!formStart || !formEnd)) { setCreateErr('Nhập giờ bắt đầu và kết thúc'); return }
+    
     setCreating(true); setCreateErr(null)
     try {
-      const payload = { name: formName.trim() || null, date: createDate, note: formNote.trim() || null }
-      if (formTpl) { payload.templateId = Number(formTpl) }
-      else { payload.startTime = formStart + ':00'; payload.endTime = formEnd + ':00' }
-      await createShift(groupId, payload)
+      if (selectMultiDays) {
+        // Bulk Create
+        const requests = selectedDays.map(dateStr => {
+          const payload = { date: dateStr, name: formName.trim() || null, note: formNote.trim() || null }
+          if (formTpl) { payload.templateId = Number(formTpl) }
+          else { payload.startTime = formStart + ':00'; payload.endTime = formEnd + ':00' }
+          return payload
+        })
+        await createShiftsBulk(groupId, requests)
+      } else {
+        // Single Create
+        const payload = { name: formName.trim() || null, date: createDate, note: formNote.trim() || null }
+        if (formTpl) { payload.templateId = Number(formTpl) }
+        else { payload.startTime = formStart + ':00'; payload.endTime = formEnd + ':00' }
+        await createShift(groupId, payload)
+      }
       setShowCreate(false)
       await loadData()
     } catch (err) { setCreateErr(err?.message || 'Không thể tạo ca') }
     finally { setCreating(false) }
   }
 
+  async function handleDeleteShift(shiftId) {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa ca làm việc này? Các phân công và đăng ký liên quan cũng sẽ bị xóa.')) return
+    try {
+      await deleteShift(groupId, shiftId)
+      setSelShift(null)
+      loadData()
+    } catch (err) {
+      alert(err.message || 'Lỗi khi xóa ca làm việc')
+    }
+  }
+
   /* ───── requirements ───── */
   async function openReqs(shift) {
     setSelShift(shift)
+    setActiveTab('requirements')
     setLoadingReqs(true); setReqErr(null); setReqPos(''); setReqQty(1)
+    setPendingRegs([]); setAssignUserId(''); setAssignPosId(''); setAssignNote(''); setAssignErr(null)
     try {
       const r = await getRequirements(shift.id)
       setReqs(Array.isArray(r) ? r : (r?.data ?? []))
     } catch { setReqs(shift.requirements || []) }
     finally { setLoadingReqs(false) }
+
+    // Load pending registrations + members for manager
+    if (isManager) {
+      setLoadingPending(true)
+      try {
+        const [pRes, mRes] = await Promise.all([
+          getPendingRegistrations(shift.id),
+          getGroupMembers(groupId).catch(() => []),
+        ])
+        setPendingRegs(Array.isArray(pRes) ? pRes : (pRes?.data ?? []))
+        const mList = Array.isArray(mRes) ? mRes : (mRes?.data ?? [])
+        setMembers(mList.filter(m => m.status === 'APPROVED'))
+      } catch { setPendingRegs([]); setMembers([]) }
+      finally { setLoadingPending(false) }
+    }
   }
 
   async function handleAddReq(e) {
@@ -171,6 +271,55 @@ export function ShiftsPage() {
       setReqs(p => p.filter(r => r.id !== id))
       await loadData()
     } catch (err) { alert(err?.message || 'Lỗi') }
+  }
+
+  /* ───── B14: approve registration ───── */
+  async function handleApprove(regId) {
+    setActioningId(regId)
+    try {
+      await approveRegistration(regId, null)
+      showRegToast('Đã duyệt đăng ký')
+      setPendingRegs(prev => prev.filter(r => r.id !== regId))
+      await loadData()
+    } catch (err) { alert(err?.message || 'Không thể duyệt') }
+    finally { setActioningId(null) }
+  }
+
+  /* ───── B15: reject registration ───── */
+  async function handleReject(regId) {
+    const reason = prompt('Lý do từ chối (tùy chọn):')
+    if (reason === null) return // cancelled
+    setActioningId(regId)
+    try {
+      await rejectRegistration(regId, reason || 'Không phù hợp')
+      showRegToast('Đã từ chối đăng ký')
+      setPendingRegs(prev => prev.filter(r => r.id !== regId))
+    } catch (err) { alert(err?.message || 'Không thể từ chối') }
+    finally { setActioningId(null) }
+  }
+
+  /* ───── B16: assign shift ───── */
+  async function handleAssign(e) {
+    e.preventDefault()
+    if (!assignUserId || !assignPosId) { setAssignErr('Chọn nhân viên và vị trí'); return }
+    setAssigning(true); setAssignErr(null)
+    try {
+      await assignShift(selShift.id, Number(assignUserId), Number(assignPosId), assignNote.trim() || null)
+      showRegToast('Đã gán nhân viên vào ca')
+      setAssignUserId(''); setAssignPosId(''); setAssignNote('')
+      await loadData()
+    } catch (err) { setAssignErr(err?.message || 'Không thể gán nhân viên') }
+    finally { setAssigning(false) }
+  }
+
+  function getMemberName(userId) {
+    const m = members.find(m => String(m.userId) === String(userId))
+    return m?.fullName || m?.username || `NV #${userId}`
+  }
+
+  function getPositionName(posId) {
+    const p = positions.find(p => String(p.id) === String(posId))
+    return p?.name || `Vị trí #${posId}`
   }
 
   /* ───── render ───── */
@@ -297,6 +446,21 @@ export function ShiftsPage() {
                           </div>
                         )}
 
+                        {/* ─── Assigned Members Inline ─── */}
+                        {(shift.assignedMembers && shift.assignedMembers.length > 0) && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-[9px] font-bold uppercase text-on-surface-variant tracking-wider border-b border-outline/10 pb-0.5 mb-1">Đã phân công</p>
+                            <div className="flex flex-wrap gap-1">
+                              {shift.assignedMembers.map(am => (
+                                <div key={am.userId} className="flex items-center gap-1 bg-surface-container px-1.5 py-0.5 rounded text-[9px] font-medium text-on-surface border border-outline/10">
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: am.colorCode || '#ccc' }}></div>
+                                  <span className="truncate max-w-[60px]">{am.fullName}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Total summary */}
                         {totalReq > 0 && (
                           <div className="flex items-center justify-between pt-1.5 border-t border-outline/10">
@@ -317,7 +481,7 @@ export function ShiftsPage() {
 
                         {/* Staff register button */}
                         {(!isManager && shift.status === 'OPEN') && (
-                          <button onClick={handleRegisterClick}
+                          <button onClick={(e) => handleRegisterClick(e, shift)}
                             className="w-full mt-1.5 py-1.5 text-[10px] font-bold text-primary bg-primary-container/20 hover:bg-primary-container/40 rounded-lg transition-colors flex items-center justify-center gap-1">
                             <span className="material-symbols-outlined text-[12px]">how_to_reg</span>
                             Đăng ký
@@ -338,19 +502,119 @@ export function ShiftsPage() {
         </div>
       )}
 
-      {/* Coming soon toast */}
-      {showToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-surface shadow-2xl border border-outline/20 rounded-2xl px-6 py-4 flex items-center gap-3 animate-[fadeIn_0.2s_ease-out] max-w-md">
-          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-            <span className="material-symbols-outlined text-amber-600">construction</span>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-on-surface">Tính năng đang phát triển</p>
-            <p className="text-xs text-on-surface-variant">Đăng ký ca sẽ được triển khai trong bản cập nhật tiếp theo.</p>
-          </div>
-          <button onClick={() => setShowToast(false)} className="p-1 text-on-surface-variant hover:text-on-surface flex-shrink-0">
+      {/* Registration success toast */}
+      {regToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xl rounded-2xl px-6 py-4 flex items-center gap-3 animate-[fadeIn_0.2s_ease-out] max-w-md">
+          <span className="material-symbols-outlined">check_circle</span>
+          <span className="font-medium text-sm">{regToast}</span>
+          <button onClick={() => setRegToast(null)} className="ml-auto p-1 hover:bg-emerald-100 rounded-lg">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
+        </div>
+      )}
+
+      {/* Registration Modal */}
+      {regShift && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center modal-overlay" onClick={() => setRegShift(null)}>
+          <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-[fadeIn_0.2s_ease-out]"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-6 pt-6 pb-4 border-b border-outline/10 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">how_to_reg</span>
+                Đăng ký ca làm việc
+              </h3>
+              <button onClick={() => setRegShift(null)} className="p-1.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <form onSubmit={handleRegisterSubmit} className="p-6 space-y-5">
+              {/* Shift info */}
+              <div className="bg-primary-container/10 rounded-xl p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-xl">calendar_month</span>
+                </div>
+                <div>
+                  <p className="text-base font-bold text-on-surface">{regShift.name || 'Ca'}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    {regShift.date} · {fmtTime(regShift.startTime)} – {fmtTime(regShift.endTime)}
+                  </p>
+                </div>
+              </div>
+
+              {regErr && <div className="bg-error-container/20 text-on-error-container rounded-lg p-3 text-sm">{regErr}</div>}
+
+              {/* Position select — filtered by my positions */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                  Vị trí đăng ký <span className="text-error">*</span>
+                </label>
+                {loadingMyPos ? (
+                  <p className="text-on-surface-variant animate-pulse py-3">Đang tải vị trí...</p>
+                ) : (() => {
+                  const shiftReqs = regShift.requirements || []
+                  const shiftPosIds = shiftReqs.map(r => r.positionId)
+                  const myPosIds = myPositions.map(p => p.positionId)
+                  const availablePositions = shiftReqs.filter(r => myPosIds.includes(r.positionId))
+
+
+                  if (myPositions.length === 0) {
+                    return (
+                      <div className="bg-amber-50 text-amber-800 rounded-xl p-4 text-sm flex items-center gap-3">
+                        <span className="material-symbols-outlined">warning</span>
+                        <span>Bạn chưa khai báo vị trí nào. Vui lòng vào <strong>Thông tin cá nhân</strong> để cập nhật vị trí trước.</span>
+                      </div>
+                    )
+                  }
+
+                  if (shiftReqs.length === 0) {
+                    return (
+                      <div className="bg-amber-50 text-amber-800 rounded-xl p-4 text-sm flex items-center gap-3">
+                        <span className="material-symbols-outlined">info</span>
+                        <span>Ca này chưa cấu hình nhu cầu nhân sự.</span>
+                      </div>
+                    )
+                  }
+
+                  if (availablePositions.length === 0) {
+                    return (
+                      <div className="bg-amber-50 text-amber-800 rounded-xl p-4 text-sm flex items-center gap-3">
+                        <span className="material-symbols-outlined">block</span>
+                        <span>Ca này không có vị trí nào phù hợp với vị trí bạn đã khai báo.</span>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <select value={regPosId} onChange={e => setRegPosId(e.target.value)}
+                      className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                      <option value="">— Chọn vị trí —</option>
+                      {availablePositions.map(r => (
+                        <option key={r.positionId} value={r.positionId}>
+                          {r.positionName} (cần {r.quantity} người)
+                        </option>
+                      ))}
+                    </select>
+                  )
+                })()}
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ghi chú</label>
+                <textarea value={regNote} onChange={e => setRegNote(e.target.value)} placeholder="Ghi chú cho manager..." rows={2}
+                  className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none" />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={() => setRegShift(null)}
+                  className="px-5 py-2.5 text-on-surface-variant font-semibold rounded-lg hover:bg-surface-container-high transition-colors">Hủy</button>
+                <button type="submit" disabled={registering || !regPosId}
+                  className="px-5 py-2.5 bg-primary text-on-primary font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50">
+                  {registering ? 'Đang đăng ký...' : 'Đăng ký ca'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -378,89 +642,209 @@ export function ShiftsPage() {
         </div>
       )}
 
-      {/* ═══ Requirement Config Panel ═══ */}
+      {/* ═══ Details Panel ═══ */}
       {selShift && (
-        <div className="bg-surface-container-lowest rounded-2xl border border-outline/10 shadow-lg overflow-hidden">
-          <div className="px-6 py-4 bg-surface-container-low border-b border-outline/10 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">groups</span>
-                Nhu cầu nhân sự — {selShift.name || 'Ca'}
-              </h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                {selShift.date} · {fmtTime(selShift.startTime)} – {fmtTime(selShift.endTime)}
-              </p>
+        <div className="bg-surface-container-lowest rounded-2xl border border-outline/10 shadow-lg overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+          <div className="px-6 py-4 bg-surface-container-low border-b border-outline/10">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
+                  Ca làm việc: {selShift.name || 'Ca chưa đặt tên'}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  {selShift.date} · {fmtTime(selShift.startTime)} – {fmtTime(selShift.endTime)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isManager && (
+                  <button onClick={() => handleDeleteShift(selShift.id)} className="p-1.5 text-error hover:bg-error-container/20 rounded-lg transition-colors" title="Xóa ca làm việc này">
+                    <span className="material-symbols-outlined">delete</span>
+                  </button>
+                )}
+                <button onClick={() => setSelShift(null)} className="p-1.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors">
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
             </div>
-            <button onClick={() => setSelShift(null)} className="p-1.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg">
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <div className="p-6 space-y-5">
-            {loadingReqs && <p className="text-on-surface-variant animate-pulse text-center py-4">Đang tải...</p>}
 
-            {!loadingReqs && reqs.length > 0 && (
-              <div className="space-y-2">
-                {reqs.map(req => (
-                  <div key={req.id} className="flex items-center justify-between bg-surface-container rounded-xl px-4 py-3 group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                        style={{ backgroundColor: req.positionColorCode || '#6366f1' }}>
-                        {(req.positionName || '?').charAt(0).toUpperCase()}
+            {/* Tabs Navigation */}
+            <div className="flex items-center gap-1 border-b border-outline/10">
+              <button onClick={() => setActiveTab('requirements')}
+                className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'requirements' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-t-lg'}`}>
+                <span className="material-symbols-outlined text-[18px]">list_alt</span>
+                Nhu cầu
+              </button>
+              {isManager && (
+                <>
+                  <button onClick={() => setActiveTab('pending')}
+                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-t-lg'}`}>
+                    <span className="material-symbols-outlined text-[18px]">pending_actions</span>
+                    Chờ duyệt
+                    {pendingRegs.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-error text-on-error text-[10px] rounded-full">{pendingRegs.length}</span>
+                    )}
+                  </button>
+                  <button onClick={() => setActiveTab('assign')}
+                    className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'assign' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-t-lg'}`}>
+                    <span className="material-symbols-outlined text-[18px]">person_add</span>
+                    Phân công thủ công
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* ═══ TAB: Requirements ═══ */}
+            {activeTab === 'requirements' && (
+              <div className="space-y-5 animate-[fadeIn_0.2s_ease-out]">
+                {loadingReqs ? (
+                  <p className="text-on-surface-variant animate-pulse text-center py-4">Đang tải...</p>
+                ) : reqs.length > 0 ? (
+                  <div className="space-y-2">
+                    {reqs.map(req => (
+                      <div key={req.id} className="flex items-center justify-between bg-surface-container rounded-xl px-4 py-3 group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                            style={{ backgroundColor: req.positionColorCode || '#6366f1' }}>
+                            {(req.positionName || '?').charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-sm font-bold text-on-surface">{req.positionName || `#${req.positionId}`}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-on-surface bg-surface-container-lowest px-3 py-1 rounded-lg border border-outline/10">{req.quantity} người</span>
+                          {isManager && (
+                            <button onClick={() => handleDelReq(req.id)} className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-bold text-on-surface">{req.positionName || `#${req.positionId}`}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-on-surface bg-surface-container-lowest px-3 py-1 rounded-lg">{req.quantity} người</span>
-                      {isManager && (
-                        <button onClick={() => handleDelReq(req.id)} className="p-1 text-on-surface-variant hover:text-error opacity-0 group-hover:opacity-100 transition-all">
-                          <span className="material-symbols-outlined text-lg">close</span>
-                        </button>
-                      )}
+                    ))}
+                    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-primary-container/20 border border-primary/10 mt-4">
+                      <span className="text-xs font-black uppercase tracking-widest text-primary">Tổng cộng</span>
+                      <span className="text-base font-black text-primary">{reqs.reduce((s, r) => s + (r.quantity || 0), 0)}</span>
                     </div>
                   </div>
-                ))}
-                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-primary-container/10">
-                  <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Tổng cần</span>
-                  <span className="text-sm font-black text-primary">{reqs.reduce((s, r) => s + (r.quantity || 0), 0)} người</span>
-                </div>
+                ) : (
+                  <div className="text-center py-8 bg-surface-container-lowest rounded-2xl border border-dashed border-outline/20">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant opacity-20 mb-3">group_off</span>
+                    <p className="text-sm text-on-surface-variant font-medium">Chưa cấu hình nhu cầu nhân sự cho ca này</p>
+                  </div>
+                )}
+
+                {isManager && positions.length > 0 && (
+                  <form onSubmit={handleAddReq} className="flex items-end gap-3 flex-wrap bg-surface-container-low p-4 rounded-xl border border-outline/10 mt-6">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Thêm vị trí</label>
+                      <select value={reqPos} onChange={e => setReqPos(e.target.value)}
+                        className="w-full px-3 py-2 text-sm bg-surface-container-lowest rounded-lg border border-outline/20 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+                        <option value="">— Chọn vị trí cần tuyển —</option>
+                        {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="w-24">
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-1.5">Số lượng</label>
+                      <input type="number" min={1} value={reqQty} onChange={e => setReqQty(e.target.value)}
+                        className="w-full px-3 py-2 text-sm text-center bg-surface-container-lowest rounded-lg border border-outline/20 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+                    </div>
+                    <button type="submit" disabled={addingReq || !reqPos}
+                      className="px-4 py-2 bg-primary text-on-primary text-sm font-bold rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5 h-[38px]">
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      {addingReq ? 'Đang...' : 'Thêm'}
+                    </button>
+                  </form>
+                )}
+                {reqErr && <div className="bg-error-container/20 text-on-error-container rounded-lg p-3 text-sm">{reqErr}</div>}
               </div>
             )}
 
-            {!loadingReqs && reqs.length === 0 && (
-              <div className="text-center py-6 bg-surface-container rounded-xl border border-dashed border-outline/20">
-                <span className="material-symbols-outlined text-3xl text-on-surface-variant opacity-20 mb-2">person_add</span>
-                <p className="text-sm text-on-surface-variant">Chưa cấu hình nhu cầu nhân sự</p>
+            {/* ═══ TAB: Pending ═══ */}
+            {activeTab === 'pending' && isManager && (
+              <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
+                {loadingPending ? (
+                  <p className="text-on-surface-variant animate-pulse text-center py-4">Đang tải...</p>
+                ) : pendingRegs.length > 0 ? (
+                  <div className="space-y-3">
+                    {pendingRegs.map(reg => (
+                      <div key={reg.id} className="flex items-center justify-between bg-surface-container rounded-xl p-4 border border-outline/5 hover:border-outline/20 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary-container text-sm font-black shadow-inner">
+                            {getMemberName(reg.userId).charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{getMemberName(reg.userId)}</p>
+                            <p className="text-xs text-on-surface-variant mt-0.5">Vị trí: <span className="font-semibold text-on-surface">{getPositionName(reg.positionId)}</span></p>
+                            {reg.note && <p className="text-[11px] text-on-surface-variant italic mt-1 bg-surface-container-lowest px-2 py-1 rounded">📝 {reg.note}</p>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleApprove(reg.id)} disabled={actioningId === reg.id}
+                            className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[18px]">check</span>
+                            Duyệt
+                          </button>
+                          <button onClick={() => handleReject(reg.id)} disabled={actioningId === reg.id}
+                            className="px-3 py-2 bg-surface-container-highest text-error text-sm font-bold rounded-lg hover:bg-error/10 transition-colors disabled:opacity-50">
+                            Từ chối
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 bg-surface-container-lowest rounded-2xl border border-dashed border-outline/20">
+                    <span className="material-symbols-outlined text-4xl text-on-surface-variant opacity-20 mb-3">check_circle</span>
+                    <p className="text-sm text-on-surface-variant font-medium">Không có đăng ký nào cần duyệt!</p>
+                  </div>
+                )}
               </div>
             )}
 
-            {isManager && positions.length > 0 && (
-              <form onSubmit={handleAddReq} className="flex items-end gap-3 flex-wrap">
-                <div className="flex-1 min-w-[180px]">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Vị trí</label>
-                  <select value={reqPos} onChange={e => setReqPos(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
-                    <option value="">— Chọn vị trí —</option>
-                    {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+            {/* ═══ TAB: Assign ═══ */}
+            {activeTab === 'assign' && isManager && (
+              <div className="space-y-4 animate-[fadeIn_0.2s_ease-out]">
+                <div className="bg-primary-container/10 p-4 rounded-xl border border-primary/20 flex gap-3">
+                  <span className="material-symbols-outlined text-primary">info</span>
+                  <p className="text-sm text-on-surface-variant leading-relaxed">
+                    Sử dụng tính năng này để điều động nhân sự vào ca làm việc kể cả khi họ chưa đăng ký. Bỏ qua bước chờ duyệt.
+                  </p>
                 </div>
-                <div className="w-28">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Số lượng</label>
-                  <input type="number" min={1} value={reqQty} onChange={e => setReqQty(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
-                </div>
-                <button type="submit" disabled={addingReq}
-                  className="px-5 py-3 bg-primary text-on-primary font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">add</span>
-                  {addingReq ? 'Đang thêm...' : 'Thêm'}
-                </button>
-              </form>
-            )}
-            {reqErr && <div className="bg-error-container/20 text-on-error-container rounded-lg p-3 text-sm">{reqErr}</div>}
+                
+                {assignErr && <div className="bg-error-container/20 text-on-error-container rounded-lg p-3 text-sm">{assignErr}</div>}
 
-            {isManager && positions.length === 0 && (
-              <div className="bg-amber-50 text-amber-800 rounded-xl p-4 text-sm flex items-center gap-3">
-                <span className="material-symbols-outlined">warning</span>
-                <span>Cần tạo vị trí làm việc trước khi cấu hình nhu cầu nhân sự.</span>
+                <form onSubmit={handleAssign} className="bg-surface-container p-5 rounded-2xl space-y-4 border border-outline/10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nhân viên <span className="text-error">*</span></label>
+                      <select value={assignUserId} onChange={e => setAssignUserId(e.target.value)}
+                        className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+                        <option value="">— Chọn Nhân Viên —</option>
+                        {members.map(m => <option key={m.userId} value={m.userId}>{m.fullName || m.username}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Vị trí <span className="text-error">*</span></label>
+                      <select value={assignPosId} onChange={e => setAssignPosId(e.target.value)}
+                        className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+                        <option value="">— Gán vào Vị Trí —</option>
+                        {positions.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ghi chú điều động</label>
+                    <input type="text" value={assignNote} onChange={e => setAssignNote(e.target.value)} placeholder="Nhập ghi chú (tùy chọn)"
+                      className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+                  </div>
+                  <div className="pt-2 flex justify-end">
+                    <button type="submit" disabled={assigning || !assignUserId || !assignPosId}
+                      className="px-6 py-2.5 bg-primary text-on-primary font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg">person_add</span>
+                      {assigning ? 'Đang phân công...' : 'Phân Công Ngay'}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
           </div>
@@ -499,14 +883,56 @@ export function ShiftsPage() {
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Tên ca</label>
                   <input type="text" value={formName} onChange={e => setFormName(e.target.value)} placeholder="VD: Ca Sáng"
-                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ngày <span className="text-error">*</span></label>
-                  <input type="date" value={createDate} onChange={e => setCreateDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Chế độ tạo</label>
+                  <div className="flex bg-surface-container-lowest rounded-xl border border-outline/20 overflow-hidden divide-x divide-outline/20">
+                    <label className={`flex-1 text-center py-3 cursor-pointer text-sm font-semibold transition-colors ${!selectMultiDays ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>
+                      <input type="radio" className="hidden" checked={!selectMultiDays} onChange={() => setSelectMultiDays(false)} />
+                      Một ngày
+                    </label>
+                    <label className={`flex-1 text-center py-3 cursor-pointer text-sm font-semibold transition-colors ${selectMultiDays ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>
+                      <input type="radio" className="hidden" checked={selectMultiDays} onChange={() => setSelectMultiDays(true)} />
+                      Nhiều ngày
+                    </label>
+                  </div>
                 </div>
               </div>
+
+              {/* Day selection */}
+              {!selectMultiDays ? (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ngày <span className="text-error">*</span></label>
+                  <input type="date" value={createDate} onChange={e => setCreateDate(e.target.value)} min={fmtISO(new Date())}
+                    className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface focus:border-primary focus:ring-1 focus:ring-primary transition-all" />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Chọn ngày trong tuần này <span className="text-error">*</span></label>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {weekDays.map((d, i) => {
+                      const dStr = fmtISO(d)
+                      const isPast = d < new Date(new Date().setHours(0,0,0,0))
+                      const isSel = selectedDays.includes(dStr)
+                      return (
+                        <button key={dStr} type="button" disabled={isPast} onClick={() => toggleDaySelection(dStr)}
+                          className={`py-2 flex flex-col items-center justify-center rounded-lg border transition-all ${
+                            isPast ? 'opacity-30 cursor-not-allowed bg-surface-container' :
+                            isSel ? 'border-primary bg-primary-container text-primary font-bold shadow-inner ring-1 ring-primary' :
+                            'border-outline/20 bg-surface-container-lowest text-on-surface-variant hover:border-primary/50'
+                          }`}>
+                          <span className="text-[10px] uppercase">{DAY_LABELS[i]}</span>
+                          <span className="text-sm">{d.getDate()}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {selectedDays.length > 0 && (
+                    <p className="text-[10px] text-primary mt-2">Đã chọn {selectedDays.length} ngày</p>
+                  )}
+                </div>
+              )}
 
               {!formTpl && (
                 <div className="grid grid-cols-2 gap-4">

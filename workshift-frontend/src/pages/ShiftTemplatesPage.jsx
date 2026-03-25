@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useOutletContext } from 'react-router-dom'
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate } from '../features/shifts/shiftTemplateApi'
+import { getPositions } from '../features/positions/positionApi'
 
 export function ShiftTemplatesPage() {
   const { groupId } = useParams()
@@ -19,6 +20,10 @@ export function ShiftTemplatesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
 
+  // positions + requirements
+  const [positions, setPositions] = useState([])
+  const [formReqs, setFormReqs] = useState([]) // [{positionId, quantity}]
+
   async function loadTemplates() {
     setLoading(true)
     setError(null)
@@ -34,6 +39,13 @@ export function ShiftTemplatesPage() {
   }
 
   useEffect(() => { loadTemplates() }, [groupId])
+
+  useEffect(() => {
+    if (!groupId) return
+    getPositions(groupId).then(res => {
+      setPositions(Array.isArray(res) ? res : (res?.data ?? []))
+    }).catch(() => {})
+  }, [groupId])
 
   function formatTime(t) {
     if (!t) return '—'
@@ -59,6 +71,7 @@ export function ShiftTemplatesPage() {
     setFormEnd('')
     setFormDesc('')
     setFormError(null)
+    setFormReqs([])
     setShowForm(true)
   }
 
@@ -69,6 +82,7 @@ export function ShiftTemplatesPage() {
     setFormEnd(formatTime(tpl.endTime))
     setFormDesc(tpl.description || '')
     setFormError(null)
+    setFormReqs((tpl.requirements || []).map(r => ({ positionId: r.positionId, quantity: r.quantity })))
     setShowForm(true)
   }
 
@@ -90,6 +104,7 @@ export function ShiftTemplatesPage() {
         startTime: formStart + ':00',
         endTime: formEnd + ':00',
         description: formDesc.trim() || null,
+        requirements: formReqs.filter(r => r.positionId && r.quantity > 0),
       }
       if (editingId) {
         await updateTemplate(groupId, editingId, payload)
@@ -219,6 +234,21 @@ export function ShiftTemplatesPage() {
                   {tpl.description && (
                     <p className="text-sm text-on-surface-variant mt-3 line-clamp-2">{tpl.description}</p>
                   )}
+
+                  {/* Requirements display */}
+                  {(tpl.requirements && tpl.requirements.length > 0) && (
+                    <div className="mt-3 pt-3 border-t border-outline/10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Nhu cầu mặc định</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tpl.requirements.map(req => (
+                          <span key={req.id} className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg border border-outline/10 bg-surface-container">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: req.positionColorCode || '#6366f1' }}></span>
+                            {req.positionName} ×{req.quantity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -283,6 +313,46 @@ export function ShiftTemplatesPage() {
                   rows={3}
                   className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none" />
               </div>
+
+              {/* Requirements section */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
+                  Nhu cầu nhân sự mặc định
+                </label>
+                <div className="space-y-2">
+                  {formReqs.map((req, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <select value={req.positionId} onChange={e => {
+                        const updated = [...formReqs]
+                        updated[idx].positionId = Number(e.target.value)
+                        setFormReqs(updated)
+                      }}
+                        className="flex-1 px-3 py-2 bg-surface-container-lowest rounded-lg border border-outline/20 text-on-surface text-sm focus:outline-none focus:border-primary">
+                        <option value="">Chọn vị trí</option>
+                        {positions.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <input type="number" min="1" value={req.quantity} onChange={e => {
+                        const updated = [...formReqs]
+                        updated[idx].quantity = Number(e.target.value)
+                        setFormReqs(updated)
+                      }}
+                        className="w-16 px-3 py-2 bg-surface-container-lowest rounded-lg border border-outline/20 text-on-surface text-sm text-center focus:outline-none focus:border-primary" />
+                      <button type="button" onClick={() => setFormReqs(formReqs.filter((_, i) => i !== idx))}
+                        className="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setFormReqs([...formReqs, { positionId: '', quantity: 1 }])}
+                    className="w-full px-3 py-2 border border-dashed border-outline/30 rounded-lg text-xs font-bold text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-1">
+                    <span className="material-symbols-outlined text-sm">add</span>
+                    Thêm nhu cầu
+                  </button>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={closeForm}
                   className="px-5 py-2.5 text-on-surface-variant font-semibold rounded-lg hover:bg-surface-container-high transition-colors">

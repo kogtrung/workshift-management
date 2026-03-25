@@ -33,6 +33,13 @@ import com.workshift.backend.shift.dto.AvailableShiftResponse;
 import com.workshift.backend.shift.dto.CreateShiftRequest;
 import com.workshift.backend.shift.dto.CreateShiftResponse;
 import com.workshift.backend.shiftrequirement.dto.ShiftRequirementResponse;
+import com.workshift.backend.shift.dto.AssignedMemberResponse;
+import com.workshift.backend.registration.RegistrationRepository;
+import com.workshift.backend.domain.RegistrationStatus;
+import com.workshift.backend.domain.Registration;
+import com.workshift.backend.domain.TemplateRequirement;
+import com.workshift.backend.repository.TemplateRequirementRepository;
+import com.workshift.backend.repository.PositionRepository;
 
 @Service
 public class ShiftService {
@@ -44,6 +51,9 @@ public class ShiftService {
 	private final ShiftTemplateRepository shiftTemplateRepository;
 	private final AvailabilityRepository availabilityRepository;
 	private final ShiftRequirementRepository shiftRequirementRepository;
+	private final RegistrationRepository registrationRepository;
+	private final TemplateRequirementRepository templateRequirementRepository;
+	private final PositionRepository positionRepository;
 
 	public ShiftService(ShiftRepository shiftRepository,
 						GroupRepository groupRepository,
@@ -51,7 +61,10 @@ public class ShiftService {
 						UserRepository userRepository,
 						ShiftTemplateRepository shiftTemplateRepository,
 						AvailabilityRepository availabilityRepository,
-						ShiftRequirementRepository shiftRequirementRepository) {
+						ShiftRequirementRepository shiftRequirementRepository,
+						RegistrationRepository registrationRepository,
+						TemplateRequirementRepository templateRequirementRepository,
+						PositionRepository positionRepository) {
 		this.shiftRepository = shiftRepository;
 		this.groupRepository = groupRepository;
 		this.groupMemberRepository = groupMemberRepository;
@@ -59,6 +72,9 @@ public class ShiftService {
 		this.shiftTemplateRepository = shiftTemplateRepository;
 		this.availabilityRepository = availabilityRepository;
 		this.shiftRequirementRepository = shiftRequirementRepository;
+		this.registrationRepository = registrationRepository;
+		this.templateRequirementRepository = templateRequirementRepository;
+		this.positionRepository = positionRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -86,16 +102,35 @@ public class ShiftService {
 				: shiftRequirementRepository.findByShiftIdIn(shiftIds).stream()
 						.collect(Collectors.groupingBy(r -> r.getShift().getId()));
 
-		return shifts.stream().map(s -> toResponseWithReqs(s, reqMap.getOrDefault(s.getId(), List.of()))).toList();
+		// batch load assigned members
+		Map<Long, List<Registration>> regMap = shiftIds.isEmpty()
+				? Map.of()
+				: registrationRepository.findByShiftIdInAndStatus(shiftIds, RegistrationStatus.APPROVED).stream()
+						.collect(Collectors.groupingBy(r -> r.getShift().getId()));
+
+		return shifts.stream().map(s -> toResponseWithReqsAndRegs(s, reqMap.getOrDefault(s.getId(), List.of()), regMap.getOrDefault(s.getId(), List.of()))).toList();
 	}
 
-	private CreateShiftResponse toResponseWithReqs(Shift shift, List<ShiftRequirement> reqs) {
+	private CreateShiftResponse toResponseWithReqsAndRegs(Shift shift, List<ShiftRequirement> reqs, List<Registration> regs) {
 		CreateShiftResponse response = toResponse(shift);
 		List<ShiftRequirementResponse> reqResponses = reqs.stream()
 				.map(r -> new ShiftRequirementResponse(r.getId(), shift.getId(), r.getPosition().getId(), r.getPosition().getName(), r.getPosition().getColorCode(), r.getQuantity()))
 				.toList();
 		response.setRequirements(reqResponses);
 		response.setTotalRequired(reqs.stream().mapToInt(ShiftRequirement::getQuantity).sum());
+		
+		List<AssignedMemberResponse> regResponses = regs.stream()
+				.map(r -> new AssignedMemberResponse(
+						r.getUser().getId(),
+						r.getUser().getFullName() != null && !r.getUser().getFullName().isBlank() ? r.getUser().getFullName() : r.getUser().getUsername(),
+						r.getUser().getUsername(),
+						r.getPosition().getId(),
+						r.getPosition().getName(),
+						r.getPosition().getColorCode()
+				))
+				.toList();
+		response.setAssignedMembers(regResponses);
+		
 		return response;
 	}
 
@@ -154,6 +189,11 @@ public class ShiftService {
 		shift.setStatus(ShiftStatus.OPEN);
 
 		Shift savedShift = shiftRepository.save(shift);
+
+		// Auto-copy template requirements
+		if (resolved.template() != null) {
+			copyTemplateRequirements(savedShift, resolved.template().getId());
+		}
 
 		CreateShiftResponse response = new CreateShiftResponse();
 		response.setId(savedShift.getId());
@@ -221,6 +261,11 @@ public class ShiftService {
 
 		Shift savedShift = shiftRepository.save(shift);
 
+		// Auto-copy template requirements
+		if (resolved.template() != null) {
+			copyTemplateRequirements(savedShift, resolved.template().getId());
+		}
+
 		CreateShiftResponse response = new CreateShiftResponse();
 		response.setId(savedShift.getId());
 		response.setGroupId(groupId);
@@ -268,6 +313,42 @@ public class ShiftService {
 		}
 
 		return new ResolvedShiftInput(template, name, startTime, endTime, note);
+	}
+
+	private void copyTemplateRequirements(Shift shift, Long templateId) {
+		List<TemplateRequirement> tplReqs = templateRequirementRepository.findByTemplateId(templateId);
+		for (TemplateRequirement tr : tplReqs) {
+			ShiftRequirement sr = new ShiftRequirement();
+			sr.setShift(shift);
+			sr.setPosition(tr.getPosition());
+			sr.setQuantity(tr.getQuantity());
+			shiftRequirementRepository.save(sr);
+		}
+	}
+
+	@Transactional
+	public void deleteShift(Long groupId, String username, Long shiftId) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng"));
+
+		GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không phải là thành viên của nhóm này"));
+
+		if (member.getRole() != GroupRole.MANAGER || member.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Chỉ Quản lý mới có quyền xóa ca làm việc");
+		}
+
+		Shift shift = shiftRepository.findById(shiftId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm việc"));
+
+		if (!shift.getGroup().getId().equals(groupId)) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Ca làm việc không thuộc nhóm này");
+		}
+
+		// Cascade delete related data
+		registrationRepository.deleteByShiftId(shiftId);
+		shiftRequirementRepository.deleteAllByShiftIdIn(java.util.List.of(shiftId));
+		shiftRepository.delete(shift);
 	}
 
 	private String normalizeBlankToNull(String value) {

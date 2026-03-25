@@ -22,3 +22,9 @@ export function createShiftsBulk(groupId, shifts) {
     body: JSON.stringify({ shifts }),
   })
 }
+
+export function deleteShift(groupId, shiftId) {
+  return apiFetch(`/groups/${groupId}/shifts/${shiftId}`, {
+    method: 'DELETE',
+  })
+}

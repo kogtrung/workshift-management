@@ -7,7 +7,9 @@ function decodeJwtPayload(token) {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
     const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = atob(payload);
+    const binary = atob(payload);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const decoded = new TextDecoder("utf-8").decode(bytes);
     return JSON.parse(decoded);
   } catch {
     return null;
@@ -23,6 +25,7 @@ export function extractUserFromToken(accessToken) {
     username: payload.username ?? payload.sub ?? null,
     fullName: payload.fullName ?? payload.name ?? null,
     email: payload.email ?? null,
+    phone: payload.phone ?? null,
     globalRole: payload.globalRole ?? payload.role ?? "USER",
   };
 }

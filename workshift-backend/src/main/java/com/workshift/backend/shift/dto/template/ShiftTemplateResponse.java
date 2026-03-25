@@ -1,6 +1,7 @@
 package com.workshift.backend.shift.dto.template;
 
 import java.time.LocalTime;
+import java.util.List;
 
 public record ShiftTemplateResponse(
 		Long id,
@@ -8,6 +9,8 @@ public record ShiftTemplateResponse(
 		String name,
 		LocalTime startTime,
 		LocalTime endTime,
-		String description
+		String description,
+		List<TemplateRequirementResponse> requirements
 ) {
 }
+
