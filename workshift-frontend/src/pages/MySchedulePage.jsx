@@ -137,7 +137,7 @@ export function MySchedulePage() {
     setRegistering(true); setError(null)
     try {
       await registerShift(regShift.id, Number(regPos), regNote.trim() || null)
-      showToast('Đăng ký ca thành công! Chờ Manager duyệt.')
+      showToast('Đăng ký ca thành công! Chờ quản lý duyệt.')
       setRegShift(null); setRegPos(''); setRegNote('')
       if (tab === 'calendar') await loadCalendar()
       else await loadShifts()
@@ -461,7 +461,7 @@ export function MySchedulePage() {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">Ghi chú</label>
                 <textarea value={regNote} onChange={e => setRegNote(e.target.value)}
-                  placeholder="Ghi chú cho Manager (tùy chọn)..." rows={2}
+                  placeholder="Ghi chú cho quản lý (tùy chọn)..." rows={2}
                   className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl border border-outline/20 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none" />
               </div>
 

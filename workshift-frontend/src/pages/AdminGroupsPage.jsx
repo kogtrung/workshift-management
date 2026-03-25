@@ -19,7 +19,7 @@ export function AdminGroupsPage() {
       const data = res?.data ?? res
       setItems(data)
     } catch (e) {
-      setError(e?.message || "Không thể tải groups")
+      setError(e?.message || "Không thể tải danh sách nhóm")
     } finally {
       setLoading(false)
     }
@@ -48,8 +48,8 @@ export function AdminGroupsPage() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-1">
-        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Quản lý Groups</h2>
-        <p className="text-on-surface-variant font-medium">Danh sách group toàn hệ thống</p>
+        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Quản lý nhóm</h2>
+        <p className="text-on-surface-variant font-medium">Danh sách nhóm toàn hệ thống</p>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 items-end">
@@ -60,7 +60,7 @@ export function AdminGroupsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="name/joinCode/username..."
+            placeholder="tên/mã tham gia/tên đăng nhập..."
             className="w-full bg-surface-container-lowest rounded-xl border border-outline/20 px-4 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -93,8 +93,8 @@ export function AdminGroupsPage() {
             <thead>
               <tr className="bg-surface-container-high/50">
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">ID</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Group</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Status</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Nhóm</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Trạng thái</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant text-right">Hành động</th>
               </tr>
             </thead>
@@ -111,7 +111,7 @@ export function AdminGroupsPage() {
                     <td className="px-6 py-4 text-sm text-on-surface-variant">#{g.id}</td>
                     <td className="px-6 py-4">
                       <div className="font-bold text-on-surface">{g.name}</div>
-                      <div className="text-xs text-on-surface-variant mt-1">JoinCode: {g.joinCode}</div>
+                      <div className="text-xs text-on-surface-variant mt-1">Mã tham gia: {g.joinCode}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{g.status}</td>
                     <td className="px-6 py-4 text-right">
@@ -121,7 +121,7 @@ export function AdminGroupsPage() {
                         disabled={actioningId === g.id}
                         className="px-3 py-2 bg-surface-container-highest text-on-surface-variant text-xs font-bold rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
                       >
-                        {actioningId === g.id ? "Đang..." : "Toggle"}
+                        {actioningId === g.id ? "Đang..." : "Đổi trạng thái"}
                       </button>
                     </td>
                   </tr>
@@ -137,10 +137,10 @@ export function AdminGroupsPage() {
               disabled={page <= 0 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Prev
+              Trước
             </button>
             <div className="text-sm text-on-surface-variant">
-              Page {page + 1} / {totalPages || 1}
+              Trang {page + 1} / {totalPages || 1}
             </div>
             <button
               type="button"
@@ -148,7 +148,7 @@ export function AdminGroupsPage() {
               disabled={page >= totalPages - 1 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Next
+              Sau
             </button>
           </div>
         </div>

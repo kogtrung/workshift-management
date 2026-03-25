@@ -24,7 +24,7 @@ export function AdminAuditLogsPage() {
       const data = res?.data ?? res
       setItems(data)
     } catch (e) {
-      setError(e?.message || "Không thể tải audit logs")
+      setError(e?.message || "Không thể tải nhật ký quản trị")
     } finally {
       setLoading(false)
     }
@@ -41,7 +41,7 @@ export function AdminAuditLogsPage() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-1">
-        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Audit Logs</h2>
+        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Nhật ký quản trị</h2>
         <p className="text-on-surface-variant font-medium">Lịch sử thao tác quản trị hệ thống</p>
       </div>
 
@@ -62,10 +62,10 @@ export function AdminAuditLogsPage() {
               <tr className="bg-surface-container-high/50">
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Thời gian</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">ID</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Admin</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Action</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Target</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Detail</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Quản trị viên</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Hành động</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Đối tượng</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Chi tiết</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline/5">
@@ -97,10 +97,10 @@ export function AdminAuditLogsPage() {
               disabled={page <= 0 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Prev
+              Trước
             </button>
             <div className="text-sm text-on-surface-variant">
-              Page {page + 1} / {totalPages || 1}
+              Trang {page + 1} / {totalPages || 1}
             </div>
             <button
               type="button"
@@ -108,7 +108,7 @@ export function AdminAuditLogsPage() {
               disabled={page >= totalPages - 1 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Next
+              Sau
             </button>
           </div>
         </div>

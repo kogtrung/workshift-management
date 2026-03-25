@@ -16,7 +16,7 @@ const MANAGER_NAV = [
   { to: 'positions', icon: 'work', label: 'Vị trí' },
   { to: 'shift-templates', icon: 'schedule', label: 'Ca mẫu' },
   { to: 'salary-configs', icon: 'payments', label: 'Cấu hình lương' },
-  { to: 'audit-logs', icon: 'history', label: 'Audit Timeline' },
+  { to: 'audit-logs', icon: 'history', label: 'Nhật ký quản trị' },
   { to: 'settings', icon: 'settings', label: 'Cài đặt' },
 ]
 
@@ -58,7 +58,7 @@ export function GroupLayout() {
 
   const isManager = groupInfo?.myRole === 'MANAGER'
   const navItems = isManager ? MANAGER_NAV : STAFF_NAV
-  const roleLabel = isManager ? 'Manager View' : 'Staff View'
+  const roleLabel = isManager ? 'Chế độ quản lý' : 'Chế độ nhân viên'
 
   async function handleLogout() {
     try { await logout() } catch { /* ignore */ }
@@ -100,7 +100,7 @@ export function GroupLayout() {
         <div className="mt-auto pt-4 space-y-2 border-t border-outline-variant/10">
           <Link to="/app/groups" className="sidebar-link text-on-surface-variant hover:bg-surface-container-highest/30">
             <span className="material-symbols-outlined">arrow_back</span>
-            <span>Về danh sách Group</span>
+            <span>Về danh sách nhóm</span>
           </Link>
         </div>
       </aside>
@@ -115,7 +115,7 @@ export function GroupLayout() {
             </span>
             {groupInfo && (
               <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isManager ? 'bg-primary-container text-on-primary-container' : 'bg-tertiary-container text-on-tertiary-container'}`}>
-                {isManager ? 'Manager' : 'Staff'}
+                {isManager ? 'Quản lý' : 'Nhân viên'}
               </span>
             )}
           </div>
@@ -123,8 +123,8 @@ export function GroupLayout() {
             <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
               {user && (
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-on-surface">{user.fullName || user.username || 'User'}</p>
-                  <p className="text-xs text-on-surface-variant">{isManager ? 'Manager' : 'Staff'}</p>
+                  <p className="text-sm font-bold text-on-surface">{user.fullName || user.username || 'Người dùng'}</p>
+                  <p className="text-xs text-on-surface-variant">{isManager ? 'Quản lý' : 'Nhân viên'}</p>
                 </div>
               )}
               <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm border-2 border-white shadow-sm">
@@ -152,7 +152,7 @@ export function GroupLayout() {
         ))}
         <Link to="/app/groups" className="flex flex-col items-center gap-1 text-on-surface-variant">
           <span className="material-symbols-outlined">arrow_back</span>
-          <span className="text-[10px] font-bold">Groups</span>
+          <span className="text-[10px] font-bold">Danh sách nhóm</span>
         </Link>
       </nav>
     </div>

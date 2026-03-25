@@ -99,7 +99,7 @@ export function SalaryConfigPage() {
       <div className="w-full text-center py-20">
         <span className="material-symbols-outlined text-5xl text-on-surface-variant opacity-20 mb-4">lock</span>
         <h3 className="text-xl font-bold text-on-surface mb-2">Không có quyền truy cập</h3>
-        <p className="text-on-surface-variant">Chỉ Manager mới có thể quản lý cấu hình lương.</p>
+        <p className="text-on-surface-variant">Chỉ quản lý mới có thể quản lý cấu hình lương.</p>
       </div>
     )
   }

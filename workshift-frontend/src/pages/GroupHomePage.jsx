@@ -202,10 +202,19 @@ export function GroupHomePage() {
         shiftIds.add(s.id)
         assigned.forEach(am => {
           totalHours += dur
+          // Một số API có thể không trả về `positionId` trong `assignedMembers`,
+          // khi đó suy ra `positionId` từ `positionName` dựa trên danh sách `positions`.
+          const resolvedPositionId =
+            am?.positionId ??
+            am?.position?.id ??
+            (am?.positionName
+              ? positions.find(p => String(p.name) === String(am.positionName))?.id
+              : null)
+
           const rate = getHourlyRateForMember({
             salaries,
             userId: am.userId,
-            positionId: am.positionId,
+            positionId: resolvedPositionId,
           })
           if (rate != null) {
             hasSalaryRate = true
@@ -219,10 +228,17 @@ export function GroupHomePage() {
           shiftIds.add(s.id)
           totalHours += dur
           const my = myAssigned[0]
+          const resolvedPositionId =
+            my?.positionId ??
+            my?.position?.id ??
+            (my?.positionName
+              ? positions.find(p => String(p.name) === String(my.positionName))?.id
+              : null)
+
           const rate = getHourlyRateForMember({
             salaries,
             userId: my.userId,
-            positionId: my.positionId,
+            positionId: resolvedPositionId,
           })
           if (rate != null) {
             hasSalaryRate = true
@@ -237,7 +253,7 @@ export function GroupHomePage() {
       totalHours: totalHours.toFixed(1),
       totalSalary: hasSalaryRate ? totalSalary : null,
     }
-  }, [shifts, salaries, isManager, user])
+  }, [shifts, salaries, isManager, user, positions])
 
   async function handleLeave() {
     if (!confirm('Bạn có chắc chắn muốn rời group này?')) return
@@ -259,7 +275,7 @@ export function GroupHomePage() {
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant opacity-70">
-            {isManager ? 'Manager Dashboard' : 'Staff Dashboard'}
+            {isManager ? 'Bảng điều khiển quản lý' : 'Bảng điều khiển nhân viên'}
           </p>
           <h2 className="text-2xl font-extrabold text-on-surface tracking-tight">
             Tổng quan Tuần
