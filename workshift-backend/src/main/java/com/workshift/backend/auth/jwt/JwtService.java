@@ -28,8 +28,8 @@ public class JwtService {
 			@Value("${JWT_SECRET}") String accessSecret,
 			@Value("${JWT_REFRESH_SECRET}") String refreshSecret,
 			@Value("${JWT_ISSUER:workshift-backend}") String issuer,
-			@Value("${JWT_EXPIRES_IN_SECONDS:900}") long accessExpiresInSeconds,
-			@Value("${JWT_REFRESH_EXPIRES_IN_SECONDS:604800}") long refreshExpiresInSeconds
+			@Value("${JWT_EXPIRES_IN_SECONDS:86400}") long accessExpiresInSeconds,
+			@Value("${JWT_REFRESH_EXPIRES_IN_SECONDS:2592000}") long refreshExpiresInSeconds
 	) {
 		this.accessAlgorithm = Algorithm.HMAC256(accessSecret);
 		this.refreshAlgorithm = Algorithm.HMAC256(refreshSecret);
@@ -53,7 +53,11 @@ public class JwtService {
 				.withExpiresAt(expiresAt)
 				.withJWTId(UUID.randomUUID().toString())
 				.withSubject(String.valueOf(user.getId()))
+				.withClaim("userId", user.getId())
 				.withClaim("username", user.getUsername())
+				.withClaim("fullName", user.getFullName())
+				.withClaim("email", user.getEmail())
+				.withClaim("phone", user.getPhone())
 				.withClaim("role", user.getGlobalRole().name())
 				.withClaim("token_type", "access")
 				.sign(accessAlgorithm);

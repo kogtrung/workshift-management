@@ -44,7 +44,7 @@ public class AdminController {
 	}
 
 	@PatchMapping("/users/{userId}/toggle-status")
-	public ResponseEntity<ApiResponse<AdminUserResponse>> toggleUserStatus(@PathVariable Long userId) {
+	public ResponseEntity<ApiResponse<AdminUserResponse>> toggleUserStatus(@PathVariable("userId") Long userId) {
 		AdminUserResponse result = adminService.toggleUserStatus(userId);
 		return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái người dùng thành công", result));
 	}
@@ -61,7 +61,7 @@ public class AdminController {
 	}
 
 	@PatchMapping("/groups/{groupId}/toggle-status")
-	public ResponseEntity<ApiResponse<com.workshift.backend.admin.dto.AdminGroupResponse>> toggleGroupStatus(@PathVariable Long groupId) {
+	public ResponseEntity<ApiResponse<com.workshift.backend.admin.dto.AdminGroupResponse>> toggleGroupStatus(@PathVariable("groupId") Long groupId) {
 		com.workshift.backend.admin.dto.AdminGroupResponse result = adminService.toggleGroupStatus(groupId);
 		return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái nhóm thành công", result));
 	}

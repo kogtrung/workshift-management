@@ -35,7 +35,7 @@ public class PositionController {
 	@PostMapping
 	public ResponseEntity<ApiResponse<PositionResponse>> createPosition(
 			Authentication authentication,
-			@PathVariable Long groupId,
+			@PathVariable("groupId") Long groupId,
 			@Valid @RequestBody CreatePositionRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -49,7 +49,7 @@ public class PositionController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<List<PositionResponse>>> getPositions(
 			Authentication authentication,
-			@PathVariable Long groupId
+			@PathVariable("groupId") Long groupId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
@@ -62,8 +62,8 @@ public class PositionController {
 	@PutMapping("/{positionId}")
 	public ResponseEntity<ApiResponse<PositionResponse>> updatePosition(
 			Authentication authentication,
-			@PathVariable Long groupId,
-			@PathVariable Long positionId,
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("positionId") Long positionId,
 			@Valid @RequestBody UpdatePositionRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -77,8 +77,8 @@ public class PositionController {
 	@DeleteMapping("/{positionId}")
 	public ResponseEntity<ApiResponse<Void>> deletePosition(
 			Authentication authentication,
-			@PathVariable Long groupId,
-			@PathVariable Long positionId
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("positionId") Long positionId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
