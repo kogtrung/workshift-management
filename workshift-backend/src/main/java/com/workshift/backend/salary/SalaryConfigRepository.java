@@ -10,4 +10,7 @@ import java.util.List;
 @Repository
 public interface SalaryConfigRepository extends JpaRepository<SalaryConfig, Long> {
     List<SalaryConfig> findByGroupIdOrderByEffectiveDateDesc(Long groupId);
+
+    List<SalaryConfig> findByGroupIdAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+            Long groupId, java.time.LocalDate date);
 }

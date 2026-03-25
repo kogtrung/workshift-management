@@ -51,4 +51,19 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 	List<Object[]> countGroupedByShiftAndPosition(
 			@Param("shiftIds") java.util.Collection<Long> shiftIds,
 			@Param("status") RegistrationStatus status);
+
+	@Query("""
+			select r from Registration r
+			join fetch r.shift s
+			join fetch r.user u
+			join fetch r.position p
+			where s.group.id = :groupId
+				and r.status = 'APPROVED'
+				and s.date between :from and :to
+			order by u.fullName asc, s.date asc
+			""")
+	List<Registration> findApprovedByGroupAndDateRange(
+			@Param("groupId") Long groupId,
+			@Param("from") LocalDate from,
+			@Param("to") LocalDate to);
 }
