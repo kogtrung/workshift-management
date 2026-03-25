@@ -148,7 +148,7 @@ export function ProfilePage() {
                       <span className={`inline-block mt-1 px-3 py-1 text-xs font-bold rounded-full ${
                         isManager ? 'bg-primary-container text-on-primary-container' : 'bg-tertiary-container text-on-tertiary-container'
                       }`}>
-                        {isManager ? 'Manager' : 'Staff'}
+                        {isManager ? 'Quản lý' : 'Nhân viên'}
                       </span>
                     </div>
                   </div>
@@ -158,7 +158,7 @@ export function ProfilePage() {
                     <span className="material-symbols-outlined text-primary text-lg">group</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60">Nhóm</p>
-                      <p className="text-sm text-on-surface font-medium">{groupInfo?.groupName || `Group #${groupId}`}</p>
+                      <p className="text-sm text-on-surface font-medium">{groupInfo?.groupName || `Nhóm #${groupId}`}</p>
                     </div>
                   </div>
 
@@ -286,7 +286,7 @@ export function ProfilePage() {
                 ) : (
                   <div className="text-center py-8">
                     <span className="material-symbols-outlined text-3xl text-on-surface-variant opacity-20 mb-2">work_off</span>
-                    <p className="text-sm text-on-surface-variant">Chưa có vị trí nào trong nhóm. Manager cần tạo vị trí trước.</p>
+                    <p className="text-sm text-on-surface-variant">Chưa có vị trí nào trong nhóm. Quản lý cần tạo vị trí trước.</p>
                   </div>
                 )}
               </div>

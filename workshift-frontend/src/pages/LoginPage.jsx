@@ -49,14 +49,14 @@ export function LoginPage() {
           <div className="w-12 h-12 mb-4 rounded-xl primary-gradient flex items-center justify-center text-white shadow-lg shadow-primary/20">
             <span className="material-symbols-outlined text-2xl">coffee</span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-on-surface">Lucid Cafe</h1>
-          <p className="text-on-surface-variant text-sm mt-1 font-medium tracking-wide">Orchestrate your workspace.</p>
+          <h1 className="text-2xl font-black tracking-tight text-on-surface">WorkShift</h1>
+          <p className="text-on-surface-variant text-sm mt-1 font-medium tracking-wide">Quản lý lịch làm việc của bạn.</p>
         </div>
 
         <div className="glass-panel rounded-xl p-8 shadow-2xl shadow-on-surface/5 border border-white/50">
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-on-surface mb-1">Welcome back</h2>
-            <p className="text-on-surface-variant text-sm">Enter your credentials to manage today&apos;s shifts.</p>
+            <h2 className="text-xl font-bold text-on-surface mb-1">Chào mừng bạn trở lại</h2>
+            <p className="text-on-surface-variant text-sm">Nhập thông tin để quản lý ca làm việc hôm nay.</p>
           </div>
 
           {error ? (
@@ -71,7 +71,7 @@ export function LoginPage() {
                 className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-0.5"
                 htmlFor="usernameOrEmail"
               >
-                Email / Username
+                Email / Tên đăng nhập
               </label>
               <div className="soft-inset bg-surface-container-low flex items-center px-1">
                 <span className="material-symbols-outlined text-on-surface-variant/60 px-2 text-xl">
@@ -80,7 +80,7 @@ export function LoginPage() {
                 <input
                   className="w-full bg-transparent border-none focus:ring-0 py-3 text-on-surface placeholder:text-on-surface-variant/40 font-medium"
                   id="usernameOrEmail"
-                  placeholder="name@cafe.com"
+                  placeholder="name@domain.com"
                   type="text"
                   value={usernameOrEmail}
                   onChange={(e) => setUsernameOrEmail(e.target.value)}
@@ -95,13 +95,13 @@ export function LoginPage() {
                   className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-0.5"
                   htmlFor="password"
                 >
-                  Password
+                Mật khẩu
                 </label>
                 <button
                   className="text-xs font-bold text-primary hover:text-primary-dim transition-colors"
                   type="button"
                 >
-                  Forgot?
+                  Quên mật khẩu?
                 </button>
               </div>
               <div className="soft-inset bg-surface-container-low flex items-center px-1">
@@ -136,7 +136,7 @@ export function LoginPage() {
                 onChange={(e) => setRemember(e.target.checked)}
               />
               <label className="text-sm font-medium text-on-surface-variant cursor-pointer" htmlFor="remember">
-                Stay signed in
+                Duy trì đăng nhập
               </label>
             </div>
 
@@ -145,7 +145,7 @@ export function LoginPage() {
               type="submit"
               disabled={!canSubmit}
             >
-              {isSubmitting ? 'Signing in...' : 'Sign In'}
+              {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
               <span className="material-symbols-outlined text-lg">arrow_forward</span>
             </button>
           </form>
@@ -155,7 +155,7 @@ export function LoginPage() {
               <div className="w-full border-t border-outline/10" />
             </div>
             <div className="relative flex justify-center text-xs uppercase tracking-tighter">
-              <span className="bg-surface-container-lowest px-4 text-on-surface-variant font-bold">or join the crew</span>
+              <span className="bg-surface-container-lowest px-4 text-on-surface-variant font-bold">Hoặc tạo tài khoản mới</span>
             </div>
           </div>
 
@@ -164,7 +164,7 @@ export function LoginPage() {
             to="/auth/register"
           >
             <span className="material-symbols-outlined text-lg">person_add</span>
-            Create Staff Account
+            Tạo tài khoản nhân viên
           </Link>
         </div>
 

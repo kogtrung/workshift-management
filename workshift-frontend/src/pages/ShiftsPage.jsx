@@ -119,7 +119,7 @@ export function ShiftsPage() {
     setRegistering(true); setRegErr(null)
     try {
       await registerShift(regShift.id, Number(regPosId), regNote.trim() || null)
-      showRegToast('Đăng ký ca thành công! Chờ Manager duyệt.')
+      showRegToast('Đăng ký ca thành công! Chờ quản lý duyệt.')
       setRegShift(null)
     } catch (err) {
       setRegErr(err?.message || 'Không thể đăng ký ca')

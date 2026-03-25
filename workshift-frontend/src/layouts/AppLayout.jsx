@@ -64,7 +64,7 @@ export function AppLayout() {
         <nav className="flex-1 space-y-4 overflow-y-auto custom-scrollbar">
           {managerGroups.length > 0 && (
             <div>
-              <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60 mb-2">Quản lý (Manager)</p>
+              <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60 mb-2">Quản lý</p>
               <div className="space-y-1">
                 {managerGroups.map((g) => (
                   <NavLink key={g.groupId} to={`/groups/${g.groupId}`}
@@ -74,7 +74,7 @@ export function AppLayout() {
                     </div>
                     <div className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{g.groupName}</span>
-                      <span className="block text-[10px] text-primary font-medium">Manager</span>
+                      <span className="block text-[10px] text-primary font-medium">Quản lý</span>
                     </div>
                   </NavLink>
                 ))}
@@ -84,7 +84,7 @@ export function AppLayout() {
 
           {memberGroups.length > 0 && (
             <div>
-              <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60 mb-2">Tham gia (Staff)</p>
+              <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-60 mb-2">Nhân viên</p>
               <div className="space-y-1">
                 {memberGroups.map((g) => (
                   <NavLink key={g.groupId} to={`/groups/${g.groupId}`}
@@ -94,7 +94,7 @@ export function AppLayout() {
                     </div>
                     <div className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{g.groupName}</span>
-                      <span className="block text-[10px] text-tertiary font-medium">Staff</span>
+                      <span className="block text-[10px] text-tertiary font-medium">Nhân viên</span>
                     </div>
                   </NavLink>
                 ))}
@@ -113,7 +113,7 @@ export function AppLayout() {
                     </div>
                     <div className="min-w-0">
                       <span className="block truncate text-sm">{g.groupName}</span>
-                      <span className="block text-[10px] text-amber-600 font-medium">Pending</span>
+                      <span className="block text-[10px] text-amber-600 font-medium">Chờ duyệt</span>
                     </div>
                   </div>
                 ))}
@@ -138,12 +138,12 @@ export function AppLayout() {
           <Link to="/app/groups/create"
             className="w-full primary-gradient text-on-primary py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
             <span className="material-symbols-outlined text-sm">add</span>
-            <span>Tạo Group</span>
+            <span>Tạo nhóm</span>
           </Link>
           <Link to="/app/groups/join"
             className="sidebar-link text-on-surface-variant hover:bg-surface-container-highest/30 justify-center">
             <span className="material-symbols-outlined text-sm">login</span>
-            <span>Join Group</span>
+            <span>Tham gia nhóm</span>
           </Link>
         </div>
       </aside>
@@ -158,7 +158,7 @@ export function AppLayout() {
                 className="px-3 py-1.5 rounded-xl bg-surface-container-lowest border border-outline/10 text-on-surface-variant font-semibold hover:bg-surface-container-high transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
-                Admin
+                Quản trị
               </Link>
             )}
           </div>
@@ -166,8 +166,8 @@ export function AppLayout() {
             <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
               {user && (
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-on-surface">{user.fullName || user.username || 'User'}</p>
-                  <p className="text-xs text-on-surface-variant">{user.globalRole === 'ADMIN' ? 'Admin' : 'User'}</p>
+                  <p className="text-sm font-bold text-on-surface">{user.fullName || user.username || 'Người dùng'}</p>
+                  <p className="text-xs text-on-surface-variant">{user.globalRole === 'ADMIN' ? 'Quản trị' : 'Người dùng'}</p>
                 </div>
               )}
               <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm border-2 border-white shadow-sm">
@@ -196,7 +196,7 @@ export function AppLayout() {
         </NavLink>
         <NavLink to="/app/groups/join" className={({ isActive }) => `flex flex-col items-center gap-1 ${isActive ? 'text-primary' : 'text-on-surface-variant'}`}>
           <span className="material-symbols-outlined">login</span>
-          <span className="text-[10px] font-bold">Join</span>
+          <span className="text-[10px] font-bold">Tham gia</span>
         </NavLink>
       </nav>
     </div>

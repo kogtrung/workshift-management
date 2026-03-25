@@ -4,10 +4,10 @@ import { logout } from "../features/auth/authApi"
 import { useMemo } from "react"
 
 const ADMIN_NAV = [
-  { to: "", label: "Dashboard", icon: "dashboard", end: true },
-  { to: "users", label: "Users", icon: "person", end: false },
-  { to: "groups", label: "Groups", icon: "groups", end: false },
-  { to: "audit-logs", label: "Audit Logs", icon: "history", end: false },
+  { to: "", label: "Bảng điều khiển", icon: "dashboard", end: true },
+  { to: "users", label: "Người dùng", icon: "person", end: false },
+  { to: "groups", label: "Nhóm", icon: "groups", end: false },
+  { to: "audit-logs", label: "Nhật ký quản trị", icon: "history", end: false },
 ]
 
 export function AdminLayout() {
@@ -15,7 +15,7 @@ export function AdminLayout() {
   const navigate = useNavigate()
 
   const activeUserLabel = useMemo(() => {
-    return user?.fullName || user?.username || "Admin"
+    return user?.fullName || user?.username || "Quản trị viên"
   }, [user])
 
   async function handleLogout() {
@@ -36,9 +36,9 @@ export function AdminLayout() {
             <div className="w-8 h-8 rounded-lg primary-gradient flex items-center justify-center text-on-primary shadow-sm">
               <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
             </div>
-            <span className="text-lg font-black text-on-surface tracking-tight">Admin</span>
+            <span className="text-lg font-black text-on-surface tracking-tight">Quản trị viên</span>
           </div>
-          <p className="text-on-surface-variant text-xs opacity-70 mt-1">System governance</p>
+          <p className="text-on-surface-variant text-xs opacity-70 mt-1">Quản trị hệ thống</p>
         </div>
 
         <nav className="flex-1 space-y-2">
@@ -63,13 +63,13 @@ export function AdminLayout() {
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         <header className="w-full sticky top-0 z-50 bg-surface flex justify-between items-center px-6 py-4">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold tracking-tight text-on-surface">WorkShift Admin</h1>
+            <h1 className="text-xl font-bold tracking-tight text-on-surface">Quản trị WorkShift</h1>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-on-surface">{activeUserLabel}</p>
-                <p className="text-xs text-on-surface-variant">Global Role: ADMIN</p>
+                <p className="text-xs text-on-surface-variant">Quyền hệ thống: ADMIN</p>
               </div>
               <button
                 onClick={handleLogout}

@@ -19,7 +19,7 @@ export function AdminUsersPage() {
       const data = res?.data ?? res
       setItems(data)
     } catch (e) {
-      setError(e?.message || "Không thể tải users")
+      setError(e?.message || "Không thể tải danh sách người dùng")
     } finally {
       setLoading(false)
     }
@@ -48,7 +48,7 @@ export function AdminUsersPage() {
   return (
     <div className="w-full space-y-6">
       <div className="space-y-1">
-        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Quản lý Users</h2>
+        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Quản lý người dùng hệ thống</h2>
         <p className="text-on-surface-variant font-medium">Danh sách người dùng hệ thống</p>
       </div>
 
@@ -93,9 +93,9 @@ export function AdminUsersPage() {
             <thead>
               <tr className="bg-surface-container-high/50">
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">ID</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">User</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Role</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Status</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Người dùng</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Vai trò</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Trạng thái</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-on-surface-variant text-right">Hành động</th>
               </tr>
             </thead>
@@ -125,7 +125,7 @@ export function AdminUsersPage() {
                         disabled={actioningId === u.id}
                         className="px-3 py-2 bg-surface-container-highest text-on-surface-variant text-xs font-bold rounded-lg hover:opacity-90 transition-colors disabled:opacity-50"
                       >
-                        {actioningId === u.id ? "Đang..." : "Toggle"}
+                        {actioningId === u.id ? "Đang..." : "Đổi trạng thái"}
                       </button>
                     </td>
                   </tr>
@@ -141,10 +141,10 @@ export function AdminUsersPage() {
               disabled={page <= 0 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Prev
+              Trước
             </button>
             <div className="text-sm text-on-surface-variant">
-              Page {page + 1} / {totalPages || 1}
+              Trang {page + 1} / {totalPages || 1}
             </div>
             <button
               type="button"
@@ -152,7 +152,7 @@ export function AdminUsersPage() {
               disabled={page >= totalPages - 1 || loading}
               className="px-4 py-2 rounded-lg border border-outline/10 hover:bg-surface-container-high disabled:opacity-50"
             >
-              Next
+              Sau
             </button>
           </div>
         </div>

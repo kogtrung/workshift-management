@@ -88,7 +88,7 @@ export function MembersPage() {
                         ? 'bg-primary-container text-on-primary-container'
                         : 'bg-secondary-container text-on-secondary-container'
                     }`}>
-                      {member.role === 'MANAGER' ? 'Manager' : 'Staff'}
+                      {member.role === 'MANAGER' ? 'Quản lý' : 'Nhân viên'}
                     </span>
                   </td>
                   <td className="px-6 py-5 hidden md:table-cell">
@@ -122,11 +122,11 @@ export function MembersPage() {
             <div className="text-4xl font-black text-on-surface tracking-tighter">{members.length}</div>
           </div>
           <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
-            <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Manager</div>
+            <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Quản lý</div>
             <div className="text-4xl font-black text-on-surface tracking-tighter">{managers.length}</div>
           </div>
           <div className="p-6 bg-surface-container-lowest rounded-xl shadow-[0_24px_48px_rgba(0,52,94,0.06)] border border-outline/5">
-            <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Staff</div>
+            <div className="text-xs font-bold tracking-widest text-on-surface-variant uppercase mb-2">Nhân viên</div>
             <div className="text-4xl font-black text-on-surface tracking-tighter">{staff.length}</div>
           </div>
         </div>

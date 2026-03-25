@@ -62,10 +62,10 @@ export function RegisterPage() {
         <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/5 rounded-full blur-3xl" />
         <div className="relative z-10 text-center mb-8">
           <span className="inline-block px-3 py-1 bg-tertiary-container text-on-tertiary-container text-[11px] font-bold uppercase tracking-[0.1em] rounded-full mb-4">
-            Join the Crew
+            Tham gia đội
           </span>
-          <h1 className="text-2xl font-extrabold tracking-tight text-on-surface">Staff Registration</h1>
-          <p className="text-on-surface-variant mt-2 text-sm">Create your credentials to access the orchestrator.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-on-surface">Đăng ký tài khoản nhân viên</h1>
+          <p className="text-on-surface-variant mt-2 text-sm">Tạo tài khoản để bắt đầu quản lý ca làm việc.</p>
         </div>
 
         {error ? (
@@ -82,7 +82,7 @@ export function RegisterPage() {
         <form className="space-y-6 relative z-10" onSubmit={onSubmit}>
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Full Name
+              Họ và tên
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -90,7 +90,7 @@ export function RegisterPage() {
               </span>
               <input
                 className="w-full pl-10 pr-4 py-3 bg-surface-container-low border-b border-outline/20 rounded-xl focus:outline-none focus:border-primary transition-all duration-300 placeholder:text-outline/50 text-on-surface"
-                placeholder="John Doe"
+                placeholder="Nguyễn Văn A"
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -101,7 +101,7 @@ export function RegisterPage() {
 
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Username
+              Tên đăng nhập
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -109,7 +109,7 @@ export function RegisterPage() {
               </span>
               <input
                 className="w-full pl-10 pr-4 py-3 bg-surface-container-low border-b border-outline/20 rounded-xl focus:outline-none focus:border-primary transition-all duration-300 placeholder:text-outline/50 text-on-surface"
-                placeholder="your.username"
+                placeholder="ten.dang.nhap"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -120,7 +120,7 @@ export function RegisterPage() {
 
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Email Address
+              Email
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -128,7 +128,7 @@ export function RegisterPage() {
               </span>
               <input
                 className="w-full pl-10 pr-4 py-3 bg-surface-container-low border-b border-outline/20 rounded-xl focus:outline-none focus:border-primary transition-all duration-300 placeholder:text-outline/50 text-on-surface"
-                placeholder="john.doe@lucidcafe.com"
+                placeholder="name@domain.com"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -139,7 +139,7 @@ export function RegisterPage() {
 
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Phone (optional)
+              Số điện thoại (tuỳ chọn)
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -158,7 +158,7 @@ export function RegisterPage() {
 
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Password
+              Mật khẩu
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -177,7 +177,7 @@ export function RegisterPage() {
 
           <div className="group">
             <label className="block text-[11px] font-medium text-on-surface-variant uppercase tracking-wider mb-1.5 ml-1">
-              Confirm Password
+              Nhập lại mật khẩu
             </label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">
@@ -200,15 +200,15 @@ export function RegisterPage() {
               type="submit"
               disabled={!canSubmit}
             >
-              {isSubmitting ? 'Creating...' : 'Create Account'}
+              {isSubmitting ? 'Đang tạo...' : 'Tạo tài khoản'}
             </button>
           </div>
 
           <div className="text-center pt-2">
             <p className="text-on-surface-variant text-sm">
-              Already have an account?
+              Bạn đã có tài khoản?
               <Link className="text-primary font-semibold hover:underline decoration-2 underline-offset-4 ml-1" to="/auth/login">
-                Sign In
+                Đăng nhập
               </Link>
             </p>
           </div>
