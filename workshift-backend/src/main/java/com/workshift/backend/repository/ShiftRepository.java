@@ -32,4 +32,7 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
 	List<Shift> findByGroupIdAndStatusOrderByDateAscStartTimeAsc(Long groupId, ShiftStatus status);
 
 	void deleteAllByGroupId(Long groupId);
+
+	List<Shift> findByGroupIdAndStatusAndDateGreaterThanEqualOrderByDateAscStartTimeAsc(
+			Long groupId, ShiftStatus status, LocalDate fromDate);
 }

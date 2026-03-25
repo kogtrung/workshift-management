@@ -40,4 +40,15 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 	long countByShiftIdAndPositionIdAndStatus(Long shiftId, Long positionId, RegistrationStatus status);
 
 	List<Registration> findByShiftIdAndStatus(Long shiftId, RegistrationStatus status);
+
+	@Query("""
+			select r.shift.id, r.position.id, count(r)
+			from Registration r
+			where r.shift.id in :shiftIds
+				and r.status = :status
+			group by r.shift.id, r.position.id
+			""")
+	List<Object[]> countGroupedByShiftAndPosition(
+			@Param("shiftIds") java.util.Collection<Long> shiftIds,
+			@Param("status") RegistrationStatus status);
 }
