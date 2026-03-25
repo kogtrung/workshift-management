@@ -152,6 +152,15 @@ export function AppLayout() {
         <header className="w-full sticky top-0 z-50 bg-surface flex justify-between items-center px-6 py-4">
           <div className="flex items-center gap-4">
             <Link to="/app/groups" className="text-xl font-bold tracking-tight text-on-surface">WorkShift</Link>
+            {user?.globalRole === 'ADMIN' && (
+              <Link
+                to="/admin"
+                className="px-3 py-1.5 rounded-xl bg-surface-container-lowest border border-outline/10 text-on-surface-variant font-semibold hover:bg-surface-container-high transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">admin_panel_settings</span>
+                Admin
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 pl-4 border-l border-outline-variant/20">

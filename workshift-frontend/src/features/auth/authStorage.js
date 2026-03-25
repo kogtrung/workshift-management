@@ -6,7 +6,9 @@ function decodeJwtPayload(token) {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
-    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    // JWT sử dụng base64url; cần chuyển sang base64 chuẩn và bổ sung padding "="
+    let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    while (payload.length % 4) payload += "=";
     const binary = atob(payload);
     const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
     const decoded = new TextDecoder("utf-8").decode(bytes);

@@ -7,6 +7,8 @@ import { getRequirements, createRequirement, deleteRequirement } from '../featur
 import { registerShift, getPendingRegistrations, approveRegistration, rejectRegistration, assignShift } from '../features/registrations/registrationApi'
 import { getMyPositions } from '../features/memberPosition/memberPositionApi'
 import { getGroupMembers } from '../features/groups/groupApi'
+import { ShiftLockModal } from '../features/shifts/components/ShiftLockModal'
+import { ShiftRecommendationsModal } from '../features/shifts/components/ShiftRecommendationsModal'
 
 /* ───── date helpers ───── */
 function startOfWeek(d) {
@@ -41,6 +43,9 @@ export function ShiftsPage() {
   const [positions, setPositions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Manager: pending count per shift (B14 - Chờ duyệt)
+  const [pendingCountsByShiftId, setPendingCountsByShiftId] = useState({})
 
   // create form
   const [showCreate, setShowCreate] = useState(false)
@@ -77,6 +82,12 @@ export function ShiftsPage() {
 
   // Panel Tabs
   const [activeTab, setActiveTab] = useState('requirements') // 'requirements', 'pending', 'assign'
+
+  // B20: Khóa ca (OPEN -> LOCKED)
+  const [lockShiftModalShift, setLockShiftModalShift] = useState(null)
+
+  // B18: Gợi ý nhân viên
+  const [recommendModalState, setRecommendModalState] = useState(null)
 
   // registration modal
   const [regShift, setRegShift] = useState(null)
@@ -129,9 +140,34 @@ export function ShiftsPage() {
         getTemplates(groupId),
         getPositions(groupId),
       ])
-      setShifts(Array.isArray(sRes) ? sRes : (sRes?.data ?? []))
+      const shiftList = Array.isArray(sRes) ? sRes : (sRes?.data ?? [])
+      setShifts(shiftList)
       setTemplates(Array.isArray(tRes) ? tRes : (tRes?.data ?? []))
       setPositions(Array.isArray(pRes) ? pRes : (pRes?.data ?? []))
+
+      // B14: Load pending registration count per shift for manager cards
+      if (isManager) {
+        try {
+          const counts = {}
+          const openShifts = (shiftList || []).filter((s) => s && s.id && s.status === 'OPEN')
+          await Promise.all(
+            openShifts.map(async (s) => {
+              try {
+                const pending = await getPendingRegistrations(s.id)
+                const list = Array.isArray(pending) ? pending : (pending?.data ?? [])
+                counts[s.id] = Array.isArray(list) ? list.length : 0
+              } catch {
+                counts[s.id] = 0
+              }
+            })
+          )
+          setPendingCountsByShiftId(counts)
+        } catch {
+          setPendingCountsByShiftId({})
+        }
+      } else {
+        setPendingCountsByShiftId({})
+      }
     } catch (err) {
       setError(err?.message || 'Không thể tải dữ liệu')
     } finally {
@@ -139,7 +175,7 @@ export function ShiftsPage() {
     }
   }
 
-  useEffect(() => { loadData() }, [groupId, weekStart])
+  useEffect(() => { loadData() }, [groupId, weekStart, isManager])
 
   const shiftsByDate = useMemo(() => {
     const map = {}
@@ -413,6 +449,11 @@ export function ShiftsPage() {
                     const isActive = selShift?.id === shift.id
                     const shiftReqs = shift.requirements || []
                     const totalReq = shift.totalRequired || 0
+                    const assignedMembers = shift.assignedMembers || []
+                    const assignedMax = 2
+                    const assignedShown = assignedMembers.slice(0, assignedMax)
+                    const assignedRest = Math.max(0, assignedMembers.length - assignedShown.length)
+                    const pendingCount = pendingCountsByShiftId[shift.id] || 0
                     return (
                       <div key={shift.id}
                         onClick={() => openReqs(shift)}
@@ -422,9 +463,17 @@ export function ShiftsPage() {
                             : `${st.cls} hover:shadow-sm`
                         }`}>
                         {/* Shift name + time */}
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />
-                          <span className="text-xs font-bold text-on-surface truncate">{shift.name || 'Ca'}</span>
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />
+                            <span className="text-xs font-bold text-on-surface truncate">{shift.name || 'Ca'}</span>
+                          </div>
+                          {isManager && pendingCount > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700">
+                              <span className="material-symbols-outlined text-[12px]">pending_actions</span>
+                              Chờ {pendingCount}
+                            </span>
+                          )}
                         </div>
                         <p className="text-[10px] text-on-surface-variant font-medium mb-2 pl-3">
                           {fmtTime(shift.startTime)} – {fmtTime(shift.endTime)}
@@ -447,16 +496,22 @@ export function ShiftsPage() {
                         )}
 
                         {/* ─── Assigned Members Inline ─── */}
-                        {(shift.assignedMembers && shift.assignedMembers.length > 0) && (
+                        {assignedMembers.length > 0 && (
                           <div className="mt-2 space-y-1">
                             <p className="text-[9px] font-bold uppercase text-on-surface-variant tracking-wider border-b border-outline/10 pb-0.5 mb-1">Đã phân công</p>
                             <div className="flex flex-wrap gap-1">
-                              {shift.assignedMembers.map(am => (
+                              {assignedShown.map(am => (
                                 <div key={am.userId} className="flex items-center gap-1 bg-surface-container px-1.5 py-0.5 rounded text-[9px] font-medium text-on-surface border border-outline/10">
                                   <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: am.colorCode || '#ccc' }}></div>
                                   <span className="truncate max-w-[60px]">{am.fullName}</span>
                                 </div>
                               ))}
+                              {assignedRest > 0 && (
+                                <div className="flex items-center gap-1 bg-surface-container px-1.5 py-0.5 rounded text-[9px] font-medium text-on-surface border border-outline/10">
+                                  <span className="material-symbols-outlined text-[14px]">add</span>
+                                  <span>+{assignedRest}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
@@ -552,7 +607,6 @@ export function ShiftsPage() {
                   <p className="text-on-surface-variant animate-pulse py-3">Đang tải vị trí...</p>
                 ) : (() => {
                   const shiftReqs = regShift.requirements || []
-                  const shiftPosIds = shiftReqs.map(r => r.positionId)
                   const myPosIds = myPositions.map(p => p.positionId)
                   const availablePositions = shiftReqs.filter(r => myPosIds.includes(r.positionId))
 
@@ -657,6 +711,17 @@ export function ShiftsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {isManager && (
+                  selShift?.status === 'OPEN' ? (
+                    <button
+                      onClick={() => setLockShiftModalShift(selShift)}
+                      className="p-1.5 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors"
+                      title="Khóa ca làm việc (OPEN -> LOCKED)"
+                    >
+                      <span className="material-symbols-outlined">lock</span>
+                    </button>
+                  ) : null
+                )}
+                {isManager && (
                   <button onClick={() => handleDeleteShift(selShift.id)} className="p-1.5 text-error hover:bg-error-container/20 rounded-lg transition-colors" title="Xóa ca làm việc này">
                     <span className="material-symbols-outlined">delete</span>
                   </button>
@@ -713,8 +778,26 @@ export function ShiftsPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-bold text-on-surface bg-surface-container-lowest px-3 py-1 rounded-lg border border-outline/10">{req.quantity} người</span>
+                          {isManager && selShift?.status === 'OPEN' && (
+                            <button
+                              onClick={() =>
+                                setRecommendModalState({
+                                  shift: selShift,
+                                  position: { positionId: req.positionId, positionName: req.positionName || `#${req.positionId}` },
+                                })
+                              }
+                              className="p-1.5 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded-lg transition-all"
+                              title="Gợi ý nhân viên theo vị trí"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                            </button>
+                          )}
                           {isManager && (
-                            <button onClick={() => handleDelReq(req.id)} className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                            <button
+                              onClick={() => handleDelReq(req.id)}
+                              className="p-1.5 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              title="Xóa nhu cầu"
+                            >
                               <span className="material-symbols-outlined text-[18px]">delete</span>
                             </button>
                           )}
@@ -974,6 +1057,33 @@ export function ShiftsPage() {
           </div>
         </div>
       )}
+
+      <ShiftLockModal
+        open={!!lockShiftModalShift}
+        onClose={() => setLockShiftModalShift(null)}
+        groupId={groupId}
+        shift={lockShiftModalShift}
+        onLocked={async () => {
+          setLockShiftModalShift(null)
+          setSelShift(null)
+          await loadData()
+          showRegToast('Đã khóa ca làm việc')
+        }}
+      />
+
+      <ShiftRecommendationsModal
+        open={!!recommendModalState}
+        onClose={() => setRecommendModalState(null)}
+        groupId={groupId}
+        shift={recommendModalState?.shift}
+        position={recommendModalState?.position}
+        onAssigned={async () => {
+          setRecommendModalState(null)
+          setSelShift(null)
+          await loadData()
+          showRegToast('Đã gán nhân viên vào ca')
+        }}
+      />
     </div>
   )
 }

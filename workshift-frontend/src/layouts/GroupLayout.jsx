@@ -9,6 +9,7 @@ const MANAGER_NAV = [
   { to: 'shifts', icon: 'calendar_month', label: 'Quản lý ca' },
   { to: 'alerts', icon: 'warning', label: 'Cảnh báo' },
   { to: 'members/pending', icon: 'person_add', label: 'Duyệt thành viên' },
+  { to: 'shift-change-requests', icon: 'swap_horiz', label: 'Yêu cầu đổi ca' },
   { to: 'payroll', icon: 'receipt_long', label: 'Bảng lương' },
   { to: 'members', icon: 'group', label: 'Thành viên' },
   { to: 'positions', icon: 'work', label: 'Vị trí' },
