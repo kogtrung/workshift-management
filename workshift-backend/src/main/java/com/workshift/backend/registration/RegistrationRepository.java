@@ -70,4 +70,14 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 			@Param("to") LocalDate to);
 
 	void deleteByShiftId(Long shiftId);
+
+	@Query("""
+			SELECT r.user.id FROM Registration r
+			WHERE r.shift.group.id = :groupId
+			  AND r.shift.date = :date
+			  AND r.status = 'APPROVED'
+			""")
+	List<Long> findApprovedUserIdsByGroupAndDate(
+			@Param("groupId") Long groupId,
+			@Param("date") LocalDate date);
 }
