@@ -24,10 +24,17 @@ async function tryRefreshToken() {
 
       const payload = await res.json();
       const newTokens = payload?.data || payload;
-      if (!newTokens?.accessToken || !newTokens?.refreshToken) throw new Error("Invalid refresh response");
+      // Backend trả:
+      //  - LoginResponse: { token, refreshToken, ... }
+      //  - RefreshTokenResponse: { token, refreshToken }
+      // Frontend storage/AuthContext lại dùng field: { accessToken, refreshToken }
+      const accessToken = newTokens?.accessToken || newTokens?.token;
+      const refreshToken = newTokens?.refreshToken;
 
-      setAuthTokens(newTokens);
-      return newTokens.accessToken;
+      if (!accessToken || !refreshToken) throw new Error("Invalid refresh response");
+
+      setAuthTokens({ accessToken, refreshToken });
+      return accessToken;
     } catch {
       clearAuthTokens();
       window.location.href = "/auth/login";

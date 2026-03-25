@@ -5,6 +5,7 @@ import { leaveGroup } from '../features/groups/groupApi'
 import { getShifts } from '../features/shifts/shiftApi'
 import { getSalaryConfigs } from '../features/salary/salaryApi'
 import { getPositions } from '../features/positions/positionApi'
+import { getUnderstaffedAlerts } from '../features/alerts/alertApi'
 
 /* ───── date helpers ───── */
 function startOfWeek(d) {
@@ -19,6 +20,15 @@ function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); retu
 function fmtISO(d) { return d.toISOString().slice(0, 10) }
 function fmtTime(t) { return t ? String(t).substring(0, 5) : '—' }
 function isToday(d) { return fmtISO(d) === fmtISO(new Date()) }
+function parseDateOnly(d) {
+  // Backend LocalDate -> "YYYY-MM-DD"
+  if (!d) return null
+  if (d instanceof Date) return d
+  const parts = String(d).split('-').map(Number)
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null
+  const [y, m, day] = parts
+  return new Date(y, m - 1, day)
+}
 
 function parseTime(t) {
   if (!t) return 0
@@ -30,6 +40,24 @@ function getDuration(s, e) {
 }
 function fmtCurrency(val) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+}
+
+function getHourlyRateForMember({ salaries, userId, positionId }) {
+  const uId = userId == null ? null : Number(userId)
+  const pId = positionId == null ? null : Number(positionId)
+  if (!Array.isArray(salaries) || salaries.length === 0) return null
+
+  const byUser = uId != null
+    ? salaries.find(c => c.userId != null && Number(c.userId) === uId && c.hourlyRate != null)
+    : null
+  if (byUser?.hourlyRate != null) return Number(byUser.hourlyRate)
+
+  const byPos = pId != null
+    ? salaries.find(c => c.positionId != null && Number(c.positionId) === pId && c.hourlyRate != null)
+    : null
+  if (byPos?.hourlyRate != null) return Number(byPos.hourlyRate)
+
+  return null
 }
 
 const DAY_LABELS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN']
@@ -62,6 +90,7 @@ export function GroupHomePage() {
   const [shifts, setShifts] = useState([])
   const [salaries, setSalaries] = useState([])
   const [positions, setPositions] = useState([])
+  const [understaffAlerts, setUnderstaffAlerts] = useState([])
   const [loadingShifts, setLoadingShifts] = useState(false)
 
   useEffect(() => {
@@ -79,13 +108,24 @@ export function GroupHomePage() {
         setShifts(Array.isArray(shiftRes) ? shiftRes : (shiftRes?.data ?? []))
         setPositions(Array.isArray(posRes) ? posRes : (posRes?.data ?? []))
         
+        try {
+          const salRes = await getSalaryConfigs(groupId)
+          setSalaries(Array.isArray(salRes) ? salRes : (salRes?.data ?? []))
+        } catch (e) {
+          // Có thể staff không có quyền xem salary configs; vẫn cho phép load trang.
+          console.warn('Salary config fetch failed', e)
+          setSalaries([])
+        }
+
         if (isManager) {
           try {
-            const salRes = await getSalaryConfigs(groupId)
-            setSalaries(Array.isArray(salRes) ? salRes : (salRes?.data ?? []))
+            const alertRes = await getUnderstaffedAlerts(groupId)
+            setUnderstaffAlerts(Array.isArray(alertRes) ? alertRes : (alertRes?.data ?? []))
           } catch (e) {
-            console.warn('Salary config fetch failed', e)
+            setUnderstaffAlerts([])
           }
+        } else {
+          setUnderstaffAlerts([])
         }
       } catch (err) {
         console.error('Failed to load overview data', err)
@@ -106,39 +146,96 @@ export function GroupHomePage() {
     return map
   }, [shifts])
 
+  const weekStartDate = useMemo(() => {
+    return new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate())
+  }, [weekStart])
+
+  const weekEndDate = useMemo(() => {
+    return addDays(weekStartDate, 6)
+  }, [weekStartDate])
+
+  // shiftId -> shortage (totalRequired - totalApproved) chỉ trong phạm vi 1 tuần hiển thị
+  const shortageByShiftId = useMemo(() => {
+    const map = {}
+    if (!Array.isArray(understaffAlerts) || understaffAlerts.length === 0) return map
+
+    understaffAlerts.forEach((a) => {
+      const d = parseDateOnly(a.date)
+      if (!d) return
+      if (d < weekStartDate || d > weekEndDate) return
+      const shiftId = a.shiftId == null ? null : String(a.shiftId)
+      if (!shiftId) return
+      const shortage = Math.max(0, (a.totalRequired || 0) - (a.totalApproved || 0))
+      if (shortage > 0) map[shiftId] = shortage
+    })
+
+    return map
+  }, [understaffAlerts, weekStartDate, weekEndDate])
+
+  const displayPositions = useMemo(() => {
+    if (isManager) return positions
+
+    const myPosIds = new Set()
+    shifts.forEach(s => {
+      ;(s.assignedMembers || []).forEach(am => {
+        if (String(am.userId) === String(user?.id) && am.positionId != null) {
+          myPosIds.add(am.positionId)
+        }
+      })
+    })
+
+    if (myPosIds.size === 0) return []
+    return positions.filter(p => myPosIds.has(p.id))
+  }, [positions, shifts, isManager, user])
+
   const metrics = useMemo(() => {
     let totalHours = 0
     let totalSalary = 0
-    let totalShifts = 0
-    let shiftIds = new Set()
+    let hasSalaryRate = false
+    const shiftIds = new Set()
 
     shifts.forEach(s => {
       const dur = getDuration(s.startTime, s.endTime)
+      const assigned = s.assignedMembers || []
+
       if (isManager) {
         shiftIds.add(s.id)
-        if (s.assignedMembers) {
-          s.assignedMembers.forEach(am => {
-            totalHours += dur
-            const config = salaries.find(c => c.positionId === am.positionId)
-            if (config && config.hourlyRate) {
-              totalSalary += dur * parseFloat(config.hourlyRate)
-            }
+        assigned.forEach(am => {
+          totalHours += dur
+          const rate = getHourlyRateForMember({
+            salaries,
+            userId: am.userId,
+            positionId: am.positionId,
           })
-        }
+          if (rate != null) {
+            hasSalaryRate = true
+            totalSalary += dur * rate
+          }
+        })
       } else {
-        // Staff calculation
-        const isMyShift = s.assignedMembers?.some(am => am.userId === user?.id)
-        if (isMyShift) {
+        // Staff: chỉ tính theo ca của chính mình
+        const myAssigned = assigned.filter(am => String(am.userId) === String(user?.id))
+        if (myAssigned.length > 0) {
           shiftIds.add(s.id)
           totalHours += dur
-          // Staff can't see totalSalary for now unless they fetch `/payroll/me`
+          const my = myAssigned[0]
+          const rate = getHourlyRateForMember({
+            salaries,
+            userId: my.userId,
+            positionId: my.positionId,
+          })
+          if (rate != null) {
+            hasSalaryRate = true
+            totalSalary += dur * rate
+          }
         }
       }
     })
+
     return {
       totalShifts: shiftIds.size,
       totalHours: totalHours.toFixed(1),
-      totalSalary // only populated for Manager
+      totalSalary: hasSalaryRate ? totalSalary : null,
     }
   }, [shifts, salaries, isManager, user])
 
@@ -155,7 +252,7 @@ export function GroupHomePage() {
     }
   }
 
-  // Determine which shifts a member sees. Managers see all. Staff sees all to know schedule, but we highlight theirs.
+  // Staff chỉ xem lịch cá nhân của mình; Manager xem toàn bộ ca của nhóm.
   return (
     <div className="w-full space-y-6">
       {/* Page Header */}
@@ -189,7 +286,7 @@ export function GroupHomePage() {
           <div className="absolute -right-4 -top-4 w-16 h-16 bg-primary/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
           <div className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase mb-2 flex items-center gap-1.5">
             <span className="material-symbols-outlined text-primary text-sm">event_note</span>
-            Số ca {isManager ? 'của tuần' : 'đã trực'}
+            Số ca {isManager ? 'của tuần' : 'đã đăng ký'}
           </div>
           <div className="flex items-end gap-2">
             <div className="text-3xl font-black text-on-surface tracking-tighter">{metrics.totalShifts}</div>
@@ -209,15 +306,17 @@ export function GroupHomePage() {
           </div>
         </div>
         
-        {isManager && (
+        {true && (
           <div className="p-4 bg-surface-container-lowest rounded-2xl shadow-[0_8px_16px_rgba(0,0,0,0.03)] border border-outline/10 relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/5 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
             <div className="text-[10px] font-bold tracking-widest text-on-surface-variant uppercase mb-2 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-emerald-600 text-sm">payments</span>
-              Chi phí ước tính
+              {isManager ? 'Chi phí ước tính' : 'Lương dự kiến'}
             </div>
             <div className="flex items-center gap-2">
-              <div className="text-2xl font-black text-emerald-700 tracking-tighter">{fmtCurrency(metrics.totalSalary)}</div>
+              <div className="text-2xl font-black text-emerald-700 tracking-tighter">
+                {metrics.totalSalary == null ? '—' : fmtCurrency(metrics.totalSalary)}
+              </div>
             </div>
           </div>
         )}
@@ -244,10 +343,10 @@ export function GroupHomePage() {
         </div>
 
         {/* Legend */}
-        {positions.length > 0 && (
+        {displayPositions.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 py-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mr-1">Vị trí:</span>
-            {positions.map(p => (
+            {displayPositions.map(p => (
               <div key={p.id} className="flex items-center gap-1.5 bg-surface-container-lowest px-2 py-1 border border-outline/10 rounded-md shadow-sm">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.colorCode || '#ccc' }}></div>
                 <span className="text-[10px] font-bold text-on-surface">{p.name}</span>
@@ -262,7 +361,10 @@ export function GroupHomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-2">
             {weekDays.map((day, idx) => {
               const key = fmtISO(day)
-              const dayShifts = shiftsByDate[key] || []
+              const dayShiftsAll = shiftsByDate[key] || []
+              const dayShifts = isManager
+                ? dayShiftsAll
+                : dayShiftsAll.filter(shift => (shift.assignedMembers || []).some(am => String(am.userId) === String(user?.id)))
               const today = isToday(day)
               return (
                 <div key={key} className={`rounded-lg border transition-all flex flex-col ${today ? 'bg-primary-container/10 border-primary/30 ring-1 ring-primary/20' : 'bg-surface-container-lowest border-outline/5 hover:border-outline/20'}`}>
@@ -286,16 +388,25 @@ export function GroupHomePage() {
                     
                     {dayShifts.map(shift => {
                       const st = STATUS_CFG[shift.status] || STATUS_CFG.OPEN
-                      const assigned = shift.assignedMembers || []
-                      const isMyShift = assigned.some(am => am.userId === user?.id)
+                      const assignedAll = shift.assignedMembers || []
+                      const isMyShift = assignedAll.some(am => String(am.userId) === String(user?.id))
+                      const assigned = isManager
+                        ? assignedAll
+                        : assignedAll.filter(am => String(am.userId) === String(user?.id))
+                      const shortage = isManager ? (shortageByShiftId[String(shift.id)] || 0) : 0
                       
                       return (
                         <div key={shift.id} className={`rounded border p-2 transition-colors ${st.cls} ${!isManager && !isMyShift ? 'opacity-50 grayscale flex-shrink-0' : 'shadow-sm'}`}>
                           <div className="flex items-center gap-1 mb-0.5">
                             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${st.dot}`} />
-                            <span className="text-[10px] font-extrabold text-on-surface truncate" title={shift.name}>{shift.name || 'Ca'}</span>
-                            {!isManager && isMyShift && (
-                              <span className="ml-auto material-symbols-outlined text-[12px] text-primary" title="Ca của tôi">person</span>
+                            <span className="min-w-0 flex-1 text-[10px] font-extrabold text-on-surface truncate" title={shift.name}>
+                              {shift.name || 'Ca'}
+                            </span>
+                            {isManager && shortage > 0 && (
+                              <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/10 border border-error/20 text-error text-[9px] font-bold flex-shrink-0">
+                                <span className="material-symbols-outlined text-[12px]">warning</span>
+                                Thiếu {shortage}
+                              </span>
                             )}
                           </div>
                           <p className="text-[9px] text-on-surface-variant font-black tracking-widest mb-1.5 pl-2.5">
