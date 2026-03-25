@@ -7,7 +7,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -90,7 +92,7 @@ public class ShiftController {
 		return ResponseEntity.ok(ApiResponse.ok("Danh sách ca phù hợp", data));
 	}
 
-	@org.springframework.web.bind.annotation.DeleteMapping("/{shiftId}")
+	@DeleteMapping("/{shiftId}")
 	public ResponseEntity<ApiResponse<Void>> deleteShift(
 			Authentication authentication,
 			@PathVariable("groupId") Long groupId,
@@ -102,6 +104,23 @@ public class ShiftController {
 
 		shiftService.deleteShift(groupId, authentication.getName(), shiftId);
 		return ResponseEntity.ok(ApiResponse.ok("Xóa ca làm việc thành công", null));
+	}
+
+	/**
+	 * B20: Khóa ca làm việc (OPEN → LOCKED).
+	 */
+	@PatchMapping("/{shiftId}/lock")
+	public ResponseEntity<ApiResponse<CreateShiftResponse>> lockShift(
+			Authentication authentication,
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("shiftId") Long shiftId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		CreateShiftResponse data = shiftService.lockShift(groupId, shiftId, authentication.getName());
+		return ResponseEntity.ok(ApiResponse.ok("Khóa ca làm việc thành công", data));
 	}
 }
 

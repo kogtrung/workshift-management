@@ -351,6 +351,46 @@ public class ShiftService {
 		shiftRepository.delete(shift);
 	}
 
+	/**
+	 * B20: Khóa Ca – chuyển trạng thái OPEN → LOCKED.
+	 * Tự động REJECT tất cả Registration PENDING còn lại của ca.
+	 */
+	@Transactional
+	public CreateShiftResponse lockShift(Long groupId, Long shiftId, String username) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng"));
+
+		groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhóm"));
+
+		GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không phải là thành viên của nhóm này"));
+
+		if (member.getRole() != GroupRole.MANAGER || member.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Chỉ Quản lý mới có quyền khóa ca làm việc");
+		}
+
+		Shift shift = shiftRepository.findByIdAndGroupId(shiftId, groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy ca làm việc"));
+
+		if (shift.getStatus() != ShiftStatus.OPEN) {
+			throw new BusinessException(HttpStatus.BAD_REQUEST, "Chỉ có thể khóa ca đang ở trạng thái OPEN");
+		}
+
+		shift.setStatus(ShiftStatus.LOCKED);
+		shiftRepository.save(shift);
+
+		// Tự động REJECT tất cả Registration PENDING
+		List<Registration> pending = registrationRepository.findByShiftIdAndStatus(shiftId, RegistrationStatus.PENDING);
+		for (Registration reg : pending) {
+			reg.setStatus(RegistrationStatus.REJECTED);
+			reg.setManagerNote("Ca đã bị khóa");
+		}
+		registrationRepository.saveAll(pending);
+
+		return toResponse(shift);
+	}
+
 	private String normalizeBlankToNull(String value) {
 		if (value == null) {
 			return null;
