@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/admin/users/1/toggle-status"
+method: PATCH
+headers:
+  Authorization: Bearer {{accessToken}}
+order: 8001
