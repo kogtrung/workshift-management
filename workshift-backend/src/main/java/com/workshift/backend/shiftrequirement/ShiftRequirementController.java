@@ -34,7 +34,7 @@ public class ShiftRequirementController {
 	@PostMapping
 	public ResponseEntity<ApiResponse<ShiftRequirementResponse>> createRequirement(
 			Authentication authentication,
-			@PathVariable Long shiftId,
+			@PathVariable("shiftId") Long shiftId,
 			@Valid @RequestBody UpsertShiftRequirementRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -48,7 +48,7 @@ public class ShiftRequirementController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<List<ShiftRequirementResponse>>> getRequirements(
 			Authentication authentication,
-			@PathVariable Long shiftId
+			@PathVariable("shiftId") Long shiftId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
@@ -61,8 +61,8 @@ public class ShiftRequirementController {
 	@PatchMapping("/{requirementId}")
 	public ResponseEntity<ApiResponse<ShiftRequirementResponse>> updateRequirement(
 			Authentication authentication,
-			@PathVariable Long shiftId,
-			@PathVariable Long requirementId,
+			@PathVariable("shiftId") Long shiftId,
+			@PathVariable("requirementId") Long requirementId,
 			@Valid @RequestBody UpsertShiftRequirementRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -76,8 +76,8 @@ public class ShiftRequirementController {
 	@DeleteMapping("/{requirementId}")
 	public ResponseEntity<ApiResponse<Void>> deleteRequirement(
 			Authentication authentication,
-			@PathVariable Long shiftId,
-			@PathVariable Long requirementId
+			@PathVariable("shiftId") Long shiftId,
+			@PathVariable("requirementId") Long requirementId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");

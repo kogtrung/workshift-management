@@ -35,7 +35,7 @@ public class ShiftTemplateController {
 	@PostMapping
 	public ResponseEntity<ApiResponse<ShiftTemplateResponse>> createTemplate(
 			Authentication authentication,
-			@PathVariable Long groupId,
+			@PathVariable("groupId") Long groupId,
 			@Valid @RequestBody CreateShiftTemplateRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -49,7 +49,7 @@ public class ShiftTemplateController {
 	@GetMapping
 	public ResponseEntity<ApiResponse<List<ShiftTemplateResponse>>> getTemplates(
 			Authentication authentication,
-			@PathVariable Long groupId
+			@PathVariable("groupId") Long groupId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
@@ -62,8 +62,8 @@ public class ShiftTemplateController {
 	@PutMapping("/{templateId}")
 	public ResponseEntity<ApiResponse<ShiftTemplateResponse>> updateTemplate(
 			Authentication authentication,
-			@PathVariable Long groupId,
-			@PathVariable Long templateId,
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("templateId") Long templateId,
 			@Valid @RequestBody UpdateShiftTemplateRequest request
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -77,8 +77,8 @@ public class ShiftTemplateController {
 	@DeleteMapping("/{templateId}")
 	public ResponseEntity<ApiResponse<Void>> deleteTemplate(
 			Authentication authentication,
-			@PathVariable Long groupId,
-			@PathVariable Long templateId
+			@PathVariable("groupId") Long groupId,
+			@PathVariable("templateId") Long templateId
 	) {
 		if (authentication == null || !authentication.isAuthenticated()) {
 			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
