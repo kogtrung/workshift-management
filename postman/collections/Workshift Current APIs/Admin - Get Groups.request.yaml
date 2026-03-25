@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{baseUrl}}/api/v1/admin/groups?page=0&size=10&search="
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+order: 8002

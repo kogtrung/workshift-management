@@ -1,0 +1,308 @@
+package com.workshift.backend.group;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
+import com.workshift.backend.domain.Position;
+import com.workshift.backend.domain.Shift;
+import com.workshift.backend.domain.ShiftRequirement;
+import com.workshift.backend.domain.ShiftTemplate;
+import com.workshift.backend.domain.GroupMemberStatus;
+import com.workshift.backend.domain.GroupRole;
+import com.workshift.backend.domain.User;
+import com.workshift.backend.common.exception.BusinessException;
+import com.workshift.backend.group.dto.CreateGroupRequest;
+import com.workshift.backend.group.dto.GroupMemberReviewAction;
+import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
+import com.workshift.backend.repository.GroupAuditLogRepository;
+import com.workshift.backend.repository.GroupMemberRepository;
+import com.workshift.backend.repository.GroupRepository;
+import com.workshift.backend.repository.PositionRepository;
+import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftRequirementRepository;
+import com.workshift.backend.repository.ShiftTemplateRepository;
+import com.workshift.backend.repository.UserRepository;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class GroupServiceTest {
+	@Autowired
+	private GroupService groupService;
+
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private GroupRepository groupRepository;
+
+	@Autowired
+	private GroupMemberRepository groupMemberRepository;
+
+	@Autowired
+	private GroupAuditLogRepository groupAuditLogRepository;
+
+	@Autowired
+	private PositionRepository positionRepository;
+
+	@Autowired
+	private ShiftTemplateRepository shiftTemplateRepository;
+
+	@Autowired
+	private ShiftRepository shiftRepository;
+
+	@Autowired
+	private ShiftRequirementRepository shiftRequirementRepository;
+
+	@Test
+	void createGroup_shouldAssignCreatorAsManager() {
+		User creator = new User();
+		creator.setUsername("manager_01");
+		creator.setEmail("manager_01@example.com");
+		creator.setPassword("encoded-password");
+		creator.setFullName("Manager 01");
+		User savedCreator = userRepository.save(creator);
+
+		var response = groupService.createGroup(
+				savedCreator.getUsername(),
+				new CreateGroupRequest("Cafe Trung Tâm", "Nhóm ca quán trung tâm")
+		);
+
+		assertNotNull(response.id());
+		assertNotNull(response.joinCode());
+		assertEquals(6, response.joinCode().length());
+		assertTrue(groupRepository.findById(response.id()).isPresent());
+
+		var groupMember = groupMemberRepository.findByGroupIdAndUserId(response.id(), savedCreator.getId()).orElseThrow();
+		assertEquals(GroupRole.MANAGER, groupMember.getRole());
+		assertEquals(GroupMemberStatus.APPROVED, groupMember.getStatus());
+		assertNotNull(groupMember.getJoinedAt());
+	}
+
+	@Test
+	void joinGroup_shouldCreatePendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_join_01");
+		manager.setEmail("manager_join_01@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Join 01");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Join", "Nhóm để test join")
+		);
+
+		User member = new User();
+		member.setUsername("member_join_01");
+		member.setEmail("member_join_01@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Join 01");
+		User savedMember = userRepository.save(member);
+
+		var response = groupService.joinGroup(savedMember.getUsername(), createdGroup.id());
+
+		assertEquals(createdGroup.id(), response.groupId());
+		assertEquals(savedMember.getId(), response.userId());
+		assertEquals(GroupRole.MEMBER.name(), response.role());
+		assertEquals(GroupMemberStatus.PENDING.name(), response.status());
+
+		var groupMember = groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedMember.getId()).orElseThrow();
+		assertEquals(GroupRole.MEMBER, groupMember.getRole());
+		assertEquals(GroupMemberStatus.PENDING, groupMember.getStatus());
+		assertNull(groupMember.getJoinedAt());
+	}
+
+	@Test
+	void joinGroup_shouldRejectDuplicateRequest() {
+		User manager = new User();
+		manager.setUsername("manager_join_02");
+		manager.setEmail("manager_join_02@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Join 02");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Join Dup", "Nhóm để test duplicate")
+		);
+
+		User member = new User();
+		member.setUsername("member_join_02");
+		member.setEmail("member_join_02@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Join 02");
+		User savedMember = userRepository.save(member);
+
+		groupService.joinGroup(savedMember.getUsername(), createdGroup.id());
+
+		assertThrows(BusinessException.class, () -> groupService.joinGroup(savedMember.getUsername(), createdGroup.id()));
+	}
+
+	@Test
+	void joinGroupByCode_shouldCreatePendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_join_code");
+		manager.setEmail("manager_join_code@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Join Code");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Join Code", "Nhóm để test join code")
+		);
+
+		User member = new User();
+		member.setUsername("member_join_code");
+		member.setEmail("member_join_code@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Join Code");
+		User savedMember = userRepository.save(member);
+
+		var response = groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+
+		assertEquals(createdGroup.id(), response.groupId());
+		assertEquals(savedMember.getId(), response.userId());
+		assertEquals(GroupRole.MEMBER.name(), response.role());
+		assertEquals(GroupMemberStatus.PENDING.name(), response.status());
+	}
+
+	@Test
+	void reviewMember_shouldApprovePendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_review_01");
+		manager.setEmail("manager_review_01@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Review 01");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Review", "Nhóm để test review")
+		);
+
+		User member = new User();
+		member.setUsername("member_review_01");
+		member.setEmail("member_review_01@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Review 01");
+		User savedMember = userRepository.save(member);
+
+		groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+		var pendingMember = groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedMember.getId()).orElseThrow();
+
+		var reviewResponse = groupService.reviewMember(
+				savedManager.getUsername(),
+				createdGroup.id(),
+				pendingMember.getId(),
+				new ReviewGroupMemberRequest(GroupMemberReviewAction.APPROVE)
+		);
+
+		assertEquals(GroupMemberStatus.APPROVED.name(), reviewResponse.status());
+
+		var updatedMember = groupMemberRepository.findById(pendingMember.getId()).orElseThrow();
+		assertEquals(GroupMemberStatus.APPROVED, updatedMember.getStatus());
+		assertNotNull(updatedMember.getJoinedAt());
+	}
+
+	@Test
+	void reviewMember_shouldRejectPendingMember() {
+		User manager = new User();
+		manager.setUsername("manager_review_02");
+		manager.setEmail("manager_review_02@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Review 02");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Review Reject", "Nhóm để test reject")
+		);
+
+		User member = new User();
+		member.setUsername("member_review_02");
+		member.setEmail("member_review_02@example.com");
+		member.setPassword("encoded-password");
+		member.setFullName("Member Review 02");
+		User savedMember = userRepository.save(member);
+
+		groupService.joinGroupByCode(savedMember.getUsername(), createdGroup.joinCode());
+		var pendingMember = groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedMember.getId()).orElseThrow();
+
+		var reviewResponse = groupService.reviewMember(
+				savedManager.getUsername(),
+				createdGroup.id(),
+				pendingMember.getId(),
+				new ReviewGroupMemberRequest(GroupMemberReviewAction.REJECT)
+		);
+
+		assertEquals(GroupMemberStatus.REJECTED.name(), reviewResponse.status());
+	}
+
+	@Test
+	void deleteGroupPermanently_shouldDeleteAuditAndRelatedData() {
+		User manager = new User();
+		manager.setUsername("manager_delete_01");
+		manager.setEmail("manager_delete_01@example.com");
+		manager.setPassword("encoded-password");
+		manager.setFullName("Manager Delete 01");
+		User savedManager = userRepository.save(manager);
+
+		var createdGroup = groupService.createGroup(
+				savedManager.getUsername(),
+				new CreateGroupRequest("Cafe Delete", "Nhóm để test delete")
+		);
+		var group = groupRepository.findById(createdGroup.id()).orElseThrow();
+
+		Position position = new Position();
+		position.setGroup(group);
+		position.setName("Phục vụ");
+		Position savedPosition = positionRepository.save(position);
+
+		ShiftTemplate template = new ShiftTemplate();
+		template.setGroup(group);
+		template.setName("Ca Sáng");
+		template.setStartTime(LocalTime.of(7, 0));
+		template.setEndTime(LocalTime.of(12, 0));
+		ShiftTemplate savedTemplate = shiftTemplateRepository.save(template);
+
+		Shift shift = new Shift();
+		shift.setGroup(group);
+		shift.setTemplate(savedTemplate);
+		shift.setName("Ca Sáng");
+		shift.setDate(LocalDate.now());
+		shift.setStartTime(LocalTime.of(7, 0));
+		shift.setEndTime(LocalTime.of(12, 0));
+		Shift savedShift = shiftRepository.save(shift);
+
+		ShiftRequirement requirement = new ShiftRequirement();
+		requirement.setShift(savedShift);
+		requirement.setPosition(savedPosition);
+		requirement.setQuantity(2);
+		ShiftRequirement savedRequirement = shiftRequirementRepository.save(requirement);
+
+		assertTrue(groupAuditLogRepository.countByGroupId(createdGroup.id()) > 0);
+		assertTrue(groupRepository.findById(createdGroup.id()).isPresent());
+
+		groupService.deleteGroupPermanently(savedManager.getUsername(), createdGroup.id());
+
+		assertTrue(groupRepository.findById(createdGroup.id()).isEmpty());
+		assertTrue(groupMemberRepository.findByGroupIdAndUserId(createdGroup.id(), savedManager.getId()).isEmpty());
+		assertEquals(0, groupAuditLogRepository.countByGroupId(createdGroup.id()));
+		assertTrue(positionRepository.findById(savedPosition.getId()).isEmpty());
+		assertTrue(shiftTemplateRepository.findById(savedTemplate.getId()).isEmpty());
+		assertTrue(shiftRepository.findById(savedShift.getId()).isEmpty());
+		assertTrue(shiftRequirementRepository.findById(savedRequirement.getId()).isEmpty());
+	}
+}

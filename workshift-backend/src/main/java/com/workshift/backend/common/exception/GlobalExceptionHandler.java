@@ -1,0 +1,94 @@
+package com.workshift.backend.common.exception;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.workshift.backend.common.api.ErrorResponse;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
+			MethodArgumentNotValidException ex,
+			HttpServletRequest request
+	) {
+		Map<String, String> errors = new LinkedHashMap<>();
+		for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
+			errors.put(fieldError.getField(), fieldError.getDefaultMessage());
+		}
+		ErrorResponse body = ErrorResponse.of(400, "Dữ liệu không hợp lệ", errors, request.getRequestURI());
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<ErrorResponse> handleConstraintViolation(
+			ConstraintViolationException ex,
+			HttpServletRequest request
+	) {
+		Map<String, String> errors = new LinkedHashMap<>();
+		ex.getConstraintViolations().forEach(v -> errors.put(v.getPropertyPath().toString(), v.getMessage()));
+		ErrorResponse body = ErrorResponse.of(400, "Dữ liệu không hợp lệ", errors, request.getRequestURI());
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(BusinessException.class)
+	public ResponseEntity<ErrorResponse> handleBusinessException(
+			BusinessException ex,
+			HttpServletRequest request
+	) {
+		HttpStatus status = ex.getStatus();
+		ErrorResponse body = ErrorResponse.of(status.value(), ex.getMessage(), Map.of(), request.getRequestURI());
+		return ResponseEntity.status(status).body(body);
+	}
+
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<ErrorResponse> handleAuthenticationException(
+			AuthenticationException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(401, "Chưa xác thực", Map.of(), request.getRequestURI());
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+			AccessDeniedException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(403, "Không có quyền truy cập", Map.of(), request.getRequestURI());
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+	}
+
+	@ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+			org.springframework.http.converter.HttpMessageNotReadableException ex,
+			HttpServletRequest request
+	) {
+		ErrorResponse body = ErrorResponse.of(400, "Cú pháp JSON không hợp lệ (Thiếu ngoặc hoặc sai định dạng)", Map.of(), request.getRequestURI());
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<ErrorResponse> handleUnexpected(
+			Exception ex,
+			HttpServletRequest request
+	) {
+		ex.printStackTrace();
+		String errorMsg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getName();
+		ErrorResponse body = ErrorResponse.of(500, "Lỗi hệ thống: " + errorMsg, Map.of(), request.getRequestURI());
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+	}
+}

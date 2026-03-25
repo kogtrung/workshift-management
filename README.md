@@ -1,176 +1,244 @@
-# Workshift Management System
+# 🗓️ Workshift Management System
 
-> **Hệ thống Quản lý Phân ca & Đăng ký Lịch làm việc Đa chi nhánh (Multi-Group Workshift Management)**
+> Hệ thống quản lý phân ca & đăng ký lịch làm việc đa nhóm (Multi-Group Workshift Management)
 
 ![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
-![Java](https://img.shields.io/badge/Backend-Java%2017%20%7C%20Spring%20Boot-green)
-![React](https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite-blue)
-![Database](https://img.shields.io/badge/Database-MySQL-orange)
+![Backend](https://img.shields.io/badge/Backend-Java%2017%20%7C%20Spring%20Boot%204.x-green)
+![Frontend](https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite%207-blue)
+![DB](https://img.shields.io/badge/DB-MySQL-orange)
+![Auth](https://img.shields.io/badge/Auth-JWT-yellow)
 
-## 📖 Giới thiệu
+## ✨ Tổng quan
 
-**Workshift Management System** là giải pháp phần mềm toàn diện dành cho các chuỗi cửa hàng, quán cafe, nhà hàng (F&B) để giải quyết bài toán quản lý lịch làm việc cho nhân viên bán thời gian (part-time).
+Workshift Management System hỗ trợ các cửa hàng/chuỗi cửa hàng (F&B) quản lý lịch làm việc cho nhân viên part-time theo mô hình **multi-group**.
 
-Hệ thống được thiết kế theo mô hình **Multi-tenancy (Logic)**, cho phép một người dùng có thể tham gia nhiều cửa hàng (Group) với các vai trò khác nhau (Quản lý hoặc Nhân viên), đảm bảo dữ liệu được cách ly và bảo mật tuyệt đối giữa các nhóm.
+- Một user có thể tham gia nhiều group (quán) với vai trò khác nhau
+- Dữ liệu được cách ly theo `group_id` (multi-tenancy theo logic)
+- Manager quản lý ca/nhu cầu/duyệt đăng ký; Member đăng ký ca và khai báo lịch rảnh
 
----
+## 🧭 Mục lục
 
-## 🚀 Tính năng nổi bật
+- [Tính năng](#-tính-năng)
+- [Kiến trúc](#-kiến-trúc)
+- [Cấu trúc repo](#-cấu-trúc-repo)
+- [Quick Start](#-quick-start)
+- [Biến môi trường](#-biến-môi-trường)
+- [API nhanh](#-api-nhanh)
+- [Test](#-test)
+- [Git workflow](#-git-workflow)
+- [Troubleshooting](#-troubleshooting)
+- [Tài liệu](#-tài-liệu)
+- [License](#-license)
 
-### 🌟 Dành cho Quản lý (Manager)
-- **Quản lý Đa chi nhánh**: Tạo và quản lý nhiều nhóm (cửa hàng) trên cùng một tài khoản.
-- **Cấu hình Ca linh hoạt**: 
-    - Tạo vị trí làm việc (Pha chế, Thu ngân, Bảo vệ...).
-    - Tạo **Ca mẫu (Shift Template)** để lên lịch nhanh chóng.
-    - Thiết lập nhu cầu nhân sự cho từng ca.
-- **Phân ca thông minh**:
-    - Duyệt đơn đăng ký của nhân viên.
-    - **Gợi ý nhân sự**: Hệ thống tự động tìm nhân viên phù hợp dựa trên lịch rảnh và vị trí.
-    - Cảnh báo các ca thiếu người.
-- **Kiểm soát chặt chẽ**: Khóa ca (Lock) trước giờ làm, xử lý yêu cầu đổi ca.
+## 🚀 Tính năng
 
-### 🌟 Dành cho Nhân viên (Member)
-- **Đăng ký chủ động**: Xem lịch tuần và đăng ký các ca còn trống.
-- **Khai báo lịch rảnh (Availability)**: Cập nhật khung giờ rảnh theo tuần để nhận gợi ý ca phù hợp.
-- **Lịch cá nhân**: Theo dõi lịch làm việc đã được duyệt.
-- **Đổi ca linh hoạt**: Gửi yêu cầu đổi ca hoặc hủy ca khi có việc đột xuất (tuân thủ quy định thời gian).
+### 👔 Manager
+- Quản lý group (quán)
+- Cấu hình vị trí (Position), ca mẫu (ShiftTemplate)
+- Tạo ca, cấu hình nhu cầu nhân sự (ShiftRequirement)
+- Duyệt/từ chối/gán nhân viên
+- Báo cáo hoạt động theo tuần/tháng
 
----
+### 👷 Member
+- Khai báo lịch rảnh (Availability)
+- Xem ca phù hợp, đăng ký/hủy đăng ký
+- Xem lịch cá nhân theo tuần/tháng
+- Yêu cầu đổi ca
 
-## 🛠 Kiến trúc & Công nghệ
+## 🏗️ Kiến trúc
 
-Dự án được xây dựng theo kiến trúc **Layered Architecture** chuẩn Enterprise, đảm bảo tính mở rộng và dễ bảo trì.
+### 📦 Feature-based (chuẩn cho teamwork)
 
-### Backend (`workshift-backend`)
-- **Core**: Java 17, Spring Boot 3.x/4.x
-- **Database**: MySQL 8.0+
-- **ORM**: Spring Data JPA
-- **Security**: Spring Security (JWT / Session)
-- **Validation**: Hibernate Validator
-- **Build Tool**: Maven
+Backend tổ chức theo **feature-based**: mỗi nghiệp vụ gom trong 1 module (Auth/Group/Shift...).
 
-### Frontend (`workshift-frontend`)
-- **Core**: React 19, Vite 7
-- **Language**: JavaScript (ES6+)
-- **HTTP Client**: Axios (với Interceptors)
-- **Styling**: CSS Modules / Tailwind CSS
-- **Routing**: React Router DOM
+- Dễ đọc: mở module là thấy controller/service/dto liên quan
+- Dễ mở rộng: thêm module mới không làm rối cấu trúc chung
+- Giảm conflict khi nhiều người cùng phát triển
 
-### Mô hình Phân lớp (Backend)
-```mermaid
-graph LR
-    Client -->|REST API| Controller
-    Controller -->|DTO| Service
-    Service -->|Entity| Repository
-    Repository -->|SQL| MySQL
-```
+### 🛠 Công nghệ
 
----
+**Backend** (`workshift-backend`)
+- Java 17, Spring Boot 4.x
+- Spring Data JPA + MySQL
+- Spring Security (JWT, stateless)
+- Validation (jakarta validation)
+- Health/metrics: Spring Boot Actuator (`/actuator/health`)
 
-## 📂 Cấu trúc dự án
+**Frontend** (`workshift-frontend`)
+- React 19 + Vite 7
+- `fetch` wrapper cho API, base url qua `VITE_API_BASE_URL`
+
+## 📁 Cấu trúc repo
 
 ```
 workshift-management/
-├── workshift-backend/       # Spring Boot Server
+├── workshift-backend/
 │   ├── src/main/java/com/workshift/backend/
-│   │   ├── config/          # Cấu hình hệ thống (Security, CORS...)
-│   │   ├── controller/      # API Endpoints
-│   │   ├── service/         # Business Logic
-│   │   ├── repository/      # Data Access Layer
-│   │   ├── entity/          # Database Models
-│   │   ├── dto/             # Data Transfer Objects
-│   │   ├── mapper/          # Entity <-> DTO Mapping
-│   │   └── exception/       # Global Error Handling
-│   └── src/main/resources/  # Config files (application.yaml)
+│   │   ├── auth/                # Feature: Auth (controller/service/dto/jwt)
+│   │   │   ├── dto/
+│   │   │   └── jwt/
+│   │   ├── common/              # Shared: api response, exception, base entity
+│   │   ├── config/              # Security, beans...
+│   │   ├── domain/              # Core entities (User...)
+│   │   └── repository/          # Core repositories (UserRepository...)
+│   └── src/main/resources/
+│       └── application.yaml
 │
-└── workshift-frontend/      # React Client
-    ├── src/
-    │   ├── api/             # API Service functions
-    │   ├── components/      # Reusable UI Components
-    │   ├── pages/           # Screen/Page Components
-    │   ├── hooks/           # Custom React Hooks
-    │   └── contexts/        # Global State Management
-    └── ...
+├── workshift-frontend/
+│   ├── src/
+│   │   └── api/                 # apiClient (`apiFetch`)
+│   └── package.json
+│
+├── tasks.md
+├── spec.md
+└── README.md
 ```
 
----
+## ⚡ Quick Start
 
-## 🏁 Hướng dẫn Cài đặt & Chạy (Quick Start)
+### ✅ Yêu cầu
+- Java 17+
+- Node.js 18+
+- MySQL 8+
 
-### Yêu cầu hệ thống
-- **Java JDK 17** trở lên.
-- **Node.js 18** (LTS) trở lên.
-- **MySQL 8.0** trở lên.
+### 1) Backend
 
-### Bước 1: Clone dự án
-```bash
-git clone https://github.com/your-username/workshift-management.git
-cd workshift-management
-```
-
-### Bước 2: Thiết lập Backend
-
-1. Di chuyển vào thư mục backend:
 ```bash
 cd workshift-backend
 ```
-2. Tạo file cấu hình từ mẫu:
-```bash
-cp .env.example .env
-```
-(Trên Windows CMD: `copy .env.example .env`)
 
-3. Mở file `.env` và cập nhật thông tin Database (nếu cần):
+Tạo `.env` tại `workshift-backend/.env`:
+
 ```properties
-DB_URL=jdbc:mysql://localhost:3306/your_name_db
-DB_USER=your_username
-DB_PASS=your_password
+DB_URL=jdbc:mysql://localhost:3306/workshift_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_USER=root
+DB_PASS=
+SERVER_PORT=8080
+
+JWT_SECRET=change-me
+JWT_ISSUER=workshift-backend
+JWT_EXPIRES_IN_SECONDS=86400
 ```
-4. Chạy ứng dụng:
+
+Chạy backend:
+
 ```bash
 ./mvnw spring-boot:run
 ```
 
-### Bước 3: Thiết lập Frontend
+Windows:
 
-1. Di chuyển vào thư mục frontend:
+```bash
+mvnw.cmd spring-boot:run
+```
+
+Health check:
+- `GET http://localhost:8080/actuator/health`
+
+### 2) Frontend
+
 ```bash
 cd workshift-frontend
-```
-2. Tạo file cấu hình từ mẫu:
-```bash
-cp .env.example .env
-```
-(Trên Windows CMD: `copy .env.example .env`)
-
-3. Cài đặt thư viện & Chạy:
-```bash
 npm install
+```
+
+Tạo `.env` từ mẫu và trỏ về backend:
+
+```bash
+copy .env.example .env
+```
+
+Trong `workshift-frontend/.env`:
+
+```properties
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+```
+
+Chạy frontend:
+
+```bash
 npm run dev
 ```
-> Client sẽ khởi động tại: `http://localhost:5173`
 
----
+## 🔧 Biến môi trường
 
-## 📚 Tài liệu API (Tóm tắt)
+### Backend (`workshift-backend/.env`)
+- `DB_URL`, `DB_USER`, `DB_PASS`
+- `SERVER_PORT`
+- `JWT_SECRET` (bắt buộc đổi khi deploy)
+- `JWT_ISSUER`, `JWT_EXPIRES_IN_SECONDS`
 
-Hệ thống cung cấp RESTful API chuẩn. Dưới đây là các nhóm API chính:
+### Frontend (`workshift-frontend/.env`)
+- `VITE_API_BASE_URL`
 
-| Nhóm | Endpoint | Mô tả |
-| :--- | :--- | :--- |
-| **Auth** | `POST /api/v1/auth/register` | Đăng ký tài khoản mới |
-| | `POST /api/v1/auth/login` | Đăng nhập hệ thống |
-| **Group** | `POST /api/v1/groups` | Tạo nhóm (Quán) mới |
-| | `GET /api/v1/groups/my` | Lấy danh sách nhóm đã tham gia |
-| **Shift** | `POST /api/v1/groups/{id}/shifts` | Tạo ca làm việc (Manager) |
-| | `GET /api/v1/groups/{id}/shifts` | Lấy danh sách ca làm việc |
-| **Reg** | `POST /api/v1/registrations` | Đăng ký ca làm (Member) |
-| | `PUT /api/v1/registrations/{id}/status` | Duyệt/Từ chối đăng ký (Manager) |
+## 🔌 API nhanh
 
-*(Chi tiết đầy đủ xem trong tài liệu kỹ thuật nội bộ)*
+### Auth
 
----
+- `POST /api/v1/auth/register`
+
+```json
+{
+  "username": "user1",
+  "email": "user1@example.com",
+  "password": "secret123",
+  "fullName": "User One",
+  "phone": "0123456789"
+}
+```
+
+- `POST /api/v1/auth/login`
+
+```json
+{
+  "usernameOrEmail": "user1@example.com",
+  "password": "secret123"
+}
+```
+
+Khi gọi API cần auth:
+- Header: `Authorization: Bearer <token>`
+
+### Health
+- `GET /actuator/health`
+
+## 🧪 Test
+
+Backend:
+
+```bash
+cd workshift-backend
+./mvnw test
+```
+
+Ghi chú:
+- Test profile dùng H2 in-memory để chạy nhanh và không phụ thuộc MySQL
+
+## 🌿 Git workflow
+
+- Nhánh chính: `develop`
+- Làm feature: `feature/<tên-tính-năng>`
+- MR vào `develop`, bật review
+- Nên tick `Delete source branch` sau khi merge
+- Commit message: `feat:`, `fix:`, `test:`, `chore:`
+
+## 🧯 Troubleshooting
+
+- Không gọi được API:
+  - Kiểm tra backend đã chạy và đúng port (`SERVER_PORT`)
+  - Kiểm tra `VITE_API_BASE_URL` trên frontend
+- Login không ra token:
+  - JSON field phải là `usernameOrEmail` và `password`
+  - User phải tồn tại trong DB (đăng ký trước)
+- DB connection failed:
+  - Kiểm tra `DB_URL/DB_USER/DB_PASS` trong `.env`
+  - Đảm bảo MySQL đang chạy
+
+## 📚 Tài liệu
+
+- `tasks.md`: phân chia nhiệm vụ theo thành viên
+- `spec.md`: đặc tả nghiệp vụ & schema
 
 ## 📄 License
 
-Dự án này thuộc sở hữu nội bộ. Mọi hành vi sao chép, phân phối lại mà không có sự cho phép đều bị nghiêm cấm.
+Dự án nội bộ. Không phân phối lại khi chưa được phép.
