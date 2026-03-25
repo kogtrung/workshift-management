@@ -23,6 +23,13 @@ import { ProfilePage } from '../pages/ProfilePage'
 import { SalaryConfigPage } from '../pages/SalaryConfigPage'
 import { PayrollPage } from '../pages/PayrollPage'
 import { AlertsPage } from '../pages/AlertsPage'
+import { ShiftChangeRequestsPage } from '../pages/ShiftChangeRequestsPage'
+import { RequireAdmin } from '../features/auth/RequireAdmin'
+import { AdminLayout } from '../layouts/AdminLayout'
+import { AdminDashboardPage } from '../pages/AdminDashboardPage'
+import { AdminUsersPage } from '../pages/AdminUsersPage'
+import { AdminGroupsPage } from '../pages/AdminGroupsPage'
+import { AdminAuditLogsPage } from '../pages/AdminAuditLogsPage'
 
 export const router = createBrowserRouter([
   {
@@ -63,6 +70,7 @@ export const router = createBrowserRouter([
       { index: true, element: <GroupHomePage /> },
       { path: 'members', element: <MembersPage /> },
       { path: 'members/pending', element: <PendingMembersPage /> },
+      { path: 'shift-change-requests', element: <ShiftChangeRequestsPage /> },
       { path: 'positions', element: <PositionsPage /> },
       { path: 'shift-templates', element: <ShiftTemplatesPage /> },
       { path: 'shifts', element: <ShiftsPage /> },
@@ -74,6 +82,20 @@ export const router = createBrowserRouter([
       { path: 'payroll', element: <PayrollPage /> },
       { path: 'alerts', element: <AlertsPage /> },
       { path: 'settings', element: <GroupSettingsPage /> },
+    ],
+  },
+  {
+    path: '/admin',
+    element: (
+      <RequireAdmin>
+        <AdminLayout />
+      </RequireAdmin>
+    ),
+    children: [
+      { index: true, element: <AdminDashboardPage /> },
+      { path: 'users', element: <AdminUsersPage /> },
+      { path: 'groups', element: <AdminGroupsPage /> },
+      { path: 'audit-logs', element: <AdminAuditLogsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

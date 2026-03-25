@@ -4,6 +4,7 @@ import { getMyCalendar } from '../features/calendar/calendarApi'
 import { registerShift, cancelRegistration } from '../features/registrations/registrationApi'
 import { getShifts } from '../features/shifts/shiftApi'
 import { getPositions } from '../features/positions/positionApi'
+import { ShiftChangeRequestModal } from '../features/shiftChange/components/ShiftChangeRequestModal'
 
 /* ───── helpers ───── */
 function startOfWeek(d) {
@@ -56,6 +57,10 @@ export function MySchedulePage() {
   const [cancelItem, setCancelItem] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelling, setCancelling] = useState(false)
+
+  // Shift change request modal (B21/B22)
+  const [changeFromItem, setChangeFromItem] = useState(null)
+  const [preparingChange, setPreparingChange] = useState(false)
 
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart])
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
@@ -153,6 +158,29 @@ export function MySchedulePage() {
     } catch (err) {
       setError(err?.message || 'Không thể hủy đăng ký')
     } finally { setCancelling(false) }
+  }
+
+  /* ───── Shift change request (B21) ───── */
+  async function handleOpenShiftChange(item) {
+    setError(null)
+    setPreparingChange(true)
+    try {
+      // Khi đang ở tab "calendar", shifts có thể chưa được load.
+      if (shifts.length === 0) {
+        await loadShifts()
+      }
+      setChangeFromItem(item)
+    } catch (err) {
+      setError(err?.message || 'Không thể chuẩn bị dữ liệu đổi ca')
+    } finally {
+      setPreparingChange(false)
+    }
+  }
+
+  async function handleShiftChangeCreated() {
+    setChangeFromItem(null)
+    showToast('Đã gửi yêu cầu đổi ca thành công! Chờ duyệt.')
+    await loadCalendar()
   }
 
   const loading = tab === 'calendar' ? loadingCal : loadingShifts
@@ -271,11 +299,28 @@ export function MySchedulePage() {
                               {st.label}
                             </span>
                             {(item.registrationStatus === 'PENDING' || item.registrationStatus === 'APPROVED') && (
-                              <button onClick={() => { setCancelItem(item); setCancelReason('') }}
-                                className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded transition-all"
-                                title="Hủy đăng ký">
-                                <span className="material-symbols-outlined text-sm">close</span>
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setCancelItem(item)
+                                    setCancelReason('')
+                                  }}
+                                  className="p-1 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded transition-all"
+                                  title="Hủy đăng ký"
+                                >
+                                  <span className="material-symbols-outlined text-sm">close</span>
+                                </button>
+                                {item.registrationStatus === 'APPROVED' && (
+                                  <button
+                                    onClick={() => handleOpenShiftChange(item)}
+                                    disabled={preparingChange}
+                                    className="p-1 text-on-surface-variant hover:text-primary hover:bg-primary-container/30 rounded transition-all disabled:opacity-60"
+                                    title="Xin đổi ca"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                           {item.positionName && (
@@ -479,6 +524,18 @@ export function MySchedulePage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* ═══ Shift Change Request Modal (B21/B22) ═══ */}
+      {changeFromItem && (
+        <ShiftChangeRequestModal
+          open={!!changeFromItem}
+          onClose={() => setChangeFromItem(null)}
+          groupId={groupId}
+          fromItem={changeFromItem}
+          availableShifts={shifts}
+          onCreated={handleShiftChangeCreated}
+        />
       )}
 
       {/* Toast notification */}
