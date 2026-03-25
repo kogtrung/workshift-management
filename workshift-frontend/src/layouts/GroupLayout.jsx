@@ -8,13 +8,19 @@ const MANAGER_NAV = [
   { to: '', icon: 'dashboard', label: 'Tổng quan', end: true },
   { to: 'members', icon: 'group', label: 'Thành viên' },
   { to: 'members/pending', icon: 'person_add', label: 'Duyệt thành viên' },
+  { to: 'positions', icon: 'work', label: 'Vị trí' },
+  { to: 'shift-templates', icon: 'schedule', label: 'Ca mẫu' },
+  { to: 'shifts', icon: 'calendar_month', label: 'Quản lý ca' },
   { to: 'audit-logs', icon: 'history', label: 'Audit Timeline' },
+  { to: 'settings', icon: 'settings', label: 'Cài đặt' },
 ]
 
 const STAFF_NAV = [
   { to: '', icon: 'dashboard', label: 'Tổng quan', end: true },
   { to: 'members', icon: 'group', label: 'Thành viên' },
+  { to: 'shifts', icon: 'calendar_month', label: 'Lịch ca' },
   { to: 'audit-logs', icon: 'history', label: 'Nhật ký' },
+  { to: 'settings', icon: 'settings', label: 'Cài đặt' },
 ]
 
 export function GroupLayout() {

@@ -41,3 +41,17 @@ export function leaveGroup(groupId) {
   return apiFetch(`/groups/${groupId}/leave`, { method: 'DELETE' })
 }
 
+export function updateGroup(groupId, payload) {
+  return apiFetch(`/groups/${groupId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function toggleGroupStatus(groupId) {
+  return apiFetch(`/groups/${groupId}/status`, { method: 'PATCH' })
+}
+
+export function deleteGroup(groupId) {
+  return apiFetch(`/groups/${groupId}`, { method: 'DELETE' })
+}

@@ -18,4 +18,6 @@ public interface ShiftTemplateRepository extends JpaRepository<ShiftTemplate, Lo
 	boolean existsByGroupIdAndName(Long groupId, String name);
 
 	boolean existsByGroupIdAndNameAndIdNot(Long groupId, String name, Long id);
+
+	void deleteAllByGroupId(Long groupId);
 }

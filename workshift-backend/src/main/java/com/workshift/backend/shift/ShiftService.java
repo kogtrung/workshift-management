@@ -1,28 +1,38 @@
 package com.workshift.backend.shift;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.workshift.backend.common.exception.BusinessException;
+import com.workshift.backend.domain.Availability;
 import com.workshift.backend.domain.Group;
 import com.workshift.backend.domain.GroupMember;
 import com.workshift.backend.domain.GroupMemberStatus;
 import com.workshift.backend.domain.GroupRole;
 import com.workshift.backend.domain.Shift;
+import com.workshift.backend.domain.ShiftRequirement;
 import com.workshift.backend.domain.ShiftStatus;
 import com.workshift.backend.domain.ShiftTemplate;
 import com.workshift.backend.domain.User;
+import com.workshift.backend.repository.AvailabilityRepository;
 import com.workshift.backend.repository.GroupMemberRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.ShiftRepository;
+import com.workshift.backend.repository.ShiftRequirementRepository;
 import com.workshift.backend.repository.ShiftTemplateRepository;
 import com.workshift.backend.repository.UserRepository;
+import com.workshift.backend.shift.dto.AvailableShiftResponse;
 import com.workshift.backend.shift.dto.CreateShiftRequest;
 import com.workshift.backend.shift.dto.CreateShiftResponse;
+import com.workshift.backend.shiftrequirement.dto.ShiftRequirementResponse;
 
 @Service
 public class ShiftService {
@@ -32,17 +42,77 @@ public class ShiftService {
 	private final GroupMemberRepository groupMemberRepository;
 	private final UserRepository userRepository;
 	private final ShiftTemplateRepository shiftTemplateRepository;
+	private final AvailabilityRepository availabilityRepository;
+	private final ShiftRequirementRepository shiftRequirementRepository;
 
-	public ShiftService(ShiftRepository shiftRepository, 
+	public ShiftService(ShiftRepository shiftRepository,
 						GroupRepository groupRepository,
 						GroupMemberRepository groupMemberRepository,
 						UserRepository userRepository,
-						ShiftTemplateRepository shiftTemplateRepository) {
+						ShiftTemplateRepository shiftTemplateRepository,
+						AvailabilityRepository availabilityRepository,
+						ShiftRequirementRepository shiftRequirementRepository) {
 		this.shiftRepository = shiftRepository;
 		this.groupRepository = groupRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.userRepository = userRepository;
 		this.shiftTemplateRepository = shiftTemplateRepository;
+		this.availabilityRepository = availabilityRepository;
+		this.shiftRequirementRepository = shiftRequirementRepository;
+	}
+
+	@Transactional(readOnly = true)
+	public List<CreateShiftResponse> getShifts(Long groupId, String username, LocalDate from, LocalDate to) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng"));
+
+		groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhóm"));
+
+		groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không phải là thành viên của nhóm này"));
+
+		List<Shift> shifts;
+		if (from != null && to != null) {
+			shifts = shiftRepository.findByGroupIdAndDateBetweenOrderByDateAscStartTimeAsc(groupId, from, to);
+		} else {
+			shifts = shiftRepository.findByGroupIdOrderByDateAscStartTimeAsc(groupId);
+		}
+
+		// batch load requirements
+		List<Long> shiftIds = shifts.stream().map(Shift::getId).toList();
+		Map<Long, List<ShiftRequirement>> reqMap = shiftIds.isEmpty()
+				? Map.of()
+				: shiftRequirementRepository.findByShiftIdIn(shiftIds).stream()
+						.collect(Collectors.groupingBy(r -> r.getShift().getId()));
+
+		return shifts.stream().map(s -> toResponseWithReqs(s, reqMap.getOrDefault(s.getId(), List.of()))).toList();
+	}
+
+	private CreateShiftResponse toResponseWithReqs(Shift shift, List<ShiftRequirement> reqs) {
+		CreateShiftResponse response = toResponse(shift);
+		List<ShiftRequirementResponse> reqResponses = reqs.stream()
+				.map(r -> new ShiftRequirementResponse(r.getId(), shift.getId(), r.getPosition().getId(), r.getPosition().getName(), r.getPosition().getColorCode(), r.getQuantity()))
+				.toList();
+		response.setRequirements(reqResponses);
+		response.setTotalRequired(reqs.stream().mapToInt(ShiftRequirement::getQuantity).sum());
+		return response;
+	}
+
+	private CreateShiftResponse toResponse(Shift shift) {
+		CreateShiftResponse response = new CreateShiftResponse();
+		response.setId(shift.getId());
+		response.setGroupId(shift.getGroup().getId());
+		response.setTemplateId(shift.getTemplate() != null ? shift.getTemplate().getId() : null);
+		response.setName(shift.getName());
+		response.setDate(shift.getDate());
+		response.setStartTime(shift.getStartTime());
+		response.setEndTime(shift.getEndTime());
+		response.setNote(shift.getNote());
+		response.setStatus(shift.getStatus());
+		response.setRequirements(new ArrayList<>());
+		response.setTotalRequired(0);
+		return response;
 	}
 
 	@Transactional
@@ -215,5 +285,74 @@ public class ShiftService {
 			LocalTime endTime,
 			String note
 	) {
+	}
+
+	@Transactional(readOnly = true)
+	public List<AvailableShiftResponse> getAvailableShifts(Long groupId, String username) {
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "Không tìm thấy người dùng"));
+
+		groupRepository.findById(groupId)
+				.orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "Không tìm thấy nhóm"));
+
+		GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
+				.orElseThrow(() -> new BusinessException(HttpStatus.FORBIDDEN, "Bạn không phải là thành viên của nhóm này"));
+
+		if (member.getStatus() != GroupMemberStatus.APPROVED) {
+			throw new BusinessException(HttpStatus.FORBIDDEN, "Tài khoản của bạn chưa được duyệt trong nhóm này");
+		}
+
+		List<Availability> availabilities = availabilityRepository.findByUserId(user.getId());
+
+		List<Shift> openShifts = shiftRepository
+				.findByGroupIdAndStatusOrderByDateAscStartTimeAsc(groupId, ShiftStatus.OPEN);
+
+		return openShifts.stream()
+				.filter(shift -> matchesAvailability(shift, availabilities))
+				.filter(shift -> hasAvailableSlots(shift))
+				.map(shift -> toAvailableShiftResponse(shift, groupId))
+				.toList();
+	}
+
+	/**
+	 * Kiểm tra ca có khớp với ít nhất 1 khung availability của member không.
+	 * Điều kiện: đúng ngày trong tuần VÀ ca nằm trong (hoặc overlap) khung giờ availability.
+	 * Overlap: avail.startTime <= shift.startTime AND avail.endTime >= shift.endTime
+	 */
+	private boolean matchesAvailability(Shift shift, List<Availability> availabilities) {
+		if (availabilities.isEmpty()) {
+			return false;
+		}
+		return availabilities.stream().anyMatch(avail ->
+				avail.getDayOfWeek() == shift.getDate().getDayOfWeek()
+						&& !avail.getStartTime().isAfter(shift.getStartTime())
+						&& !avail.getEndTime().isBefore(shift.getEndTime())
+		);
+	}
+
+	/**
+	 * Kiểm tra ca có ít nhất 1 ShiftRequirement với tổng slot > 0.
+	 * TODO: Khi B12 (đăng ký ca) được implement, cập nhật logic để trừ số slot đã đăng ký.
+	 */
+	private boolean hasAvailableSlots(Shift shift) {
+		List<ShiftRequirement> requirements = shiftRequirementRepository.findByShiftId(shift.getId());
+		return requirements.stream().anyMatch(req -> req.getQuantity() > 0);
+	}
+
+	private AvailableShiftResponse toAvailableShiftResponse(Shift shift, Long groupId) {
+		List<ShiftRequirement> requirements = shiftRequirementRepository.findByShiftId(shift.getId());
+		int totalSlots = requirements.stream().mapToInt(ShiftRequirement::getQuantity).sum();
+
+		AvailableShiftResponse response = new AvailableShiftResponse();
+		response.setId(shift.getId());
+		response.setGroupId(groupId);
+		response.setName(shift.getName());
+		response.setDate(shift.getDate());
+		response.setStartTime(shift.getStartTime());
+		response.setEndTime(shift.getEndTime());
+		response.setNote(shift.getNote());
+		response.setStatus(shift.getStatus());
+		response.setTotalSlots(totalSlots);
+		return response;
 	}
 }
