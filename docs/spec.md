@@ -2,8 +2,8 @@
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
 >
-> Phiên bản: 1.7 (Cập nhật tiến trình triển khai B05.1 + B06-B10)
-> Ngày cập nhật: 2026-03-24
+> Phiên bản: 1.8 (Cập nhật theo tiến trình triển khai thực tế frontend + backend)
+> Ngày cập nhật: 2026-03-27
 
 ---
 
@@ -320,7 +320,7 @@
 - Kiểm thử: Validate thời gian; CRUD đúng group.
 
 ### B08 Khai báo Lịch rảnh
-- Backend: CRUD /api/v1/groups/{id}/availability; day_of_week, start_time, end_time; một user nhiều slot.
+- Backend: GET/PUT /api/v1/availability; day_of_week, start_time, end_time; một user nhiều slot.
 - Ràng buộc: start < end; gắn group_id; chặn chồng lấn (khuyến nghị).
 - Frontend: UI chọn thứ/giờ theo tuần; danh sách slot.
 - Kiểm thử: Tạo hợp lệ; từ chối slot chồng lấn.
@@ -412,12 +412,11 @@
 ### B23 Quản lý Hệ thống (Admin)
 - Backend:
   - `GET /api/v1/admin/users` (lọc theo trạng thái, từ khóa, phân trang)
-  - `PATCH /api/v1/admin/users/{id}/status` (ACTIVE/BANNED)
+  - `PATCH /api/v1/admin/users/{id}/toggle-status` (khóa/mở user)
   - `GET /api/v1/admin/groups` (lọc theo trạng thái, từ khóa, phân trang)
-  - `PATCH /api/v1/admin/groups/{id}/status` (ACTIVE/INACTIVE)
-  - `GET /api/v1/admin/metrics/daily?date=...`
-  - `GET /api/v1/admin/metrics/monthly?month=...&year=...`
-  - `GET /api/v1/admin/audit-logs?from=...&to=...`
+  - `PATCH /api/v1/admin/groups/{id}/toggle-status` (khóa/mở group)
+  - `GET /api/v1/admin/metrics`
+  - `GET /api/v1/admin/audit-logs?page=...&size=...`
 - Dữ liệu: status chuyển BANNED/INACTIVE; log audit đầy đủ before/after + actor + timestamp.
 - Frontend: Trang Admin gồm dashboard chỉ số ngày/tháng, bảng user/group, lịch sử audit.
 - Kiểm thử: Quyền admin; tác động đúng đối tượng; tính đúng chỉ số daily/monthly.
@@ -444,7 +443,9 @@
 - Kiểm thử: Đúng số giờ/lương; edge khi thiếu config.
 
 ### B26 Báo cáo Hoạt động
-- Backend: GET /api/v1/groups/{id}/performance?range=... trả số ca, tổng giờ theo tuần/tháng; nhóm theo user/position.
+- Backend:
+  - `GET /api/v1/groups/{id}/reports/weekly?year=...&week=...`
+  - `GET /api/v1/groups/{id}/reports/monthly?year=...&month=...`
 - Dữ liệu: Aggregation, indexes tối ưu query.
 - Frontend: Chart line/bar, filter range; drilldown.
 - Kiểm thử: Đúng số liệu; hiệu năng với dữ liệu lớn.
@@ -471,6 +472,9 @@
 | `/api/v1/groups/{id}/members` | GET | Bearer | Danh sách thành viên trong group |
 | `/api/v1/groups/{id}/members/pending` | GET | Bearer (MANAGER) | Lấy danh sách thành viên chờ duyệt |
 | `/api/v1/groups/{id}/members/{memberId}` | PATCH | Bearer (MANAGER) | Duyệt hoặc từ chối thành viên (`APPROVE`/`REJECT`) |
+| `/api/v1/groups/{id}` | PUT | Bearer (MANAGER) | Cập nhật thông tin group |
+| `/api/v1/groups/{id}/status` | PATCH | Bearer (MANAGER) | Đóng/Mở lại group |
+| `/api/v1/groups/{id}` | DELETE | Bearer (MANAGER) | Xóa vĩnh viễn group |
 | `/api/v1/groups/{id}/leave` | DELETE | Bearer | Rời group |
 
 ### 3. Group Manager Audit (B05.1)
@@ -499,8 +503,11 @@
 ### 6. Shift (B09)
 | API | Method | Auth | Mô tả |
 | :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/shifts` | GET | Bearer | Danh sách ca theo range (`from`, `to`) |
 | `/api/v1/groups/{groupId}/shifts` | POST | Bearer (MANAGER) | Tạo ca làm việc |
 | `/api/v1/groups/{groupId}/shifts/bulk` | POST | Bearer (MANAGER) | Tạo ca hàng loạt |
+| `/api/v1/groups/{groupId}/shifts/{shiftId}` | DELETE | Bearer (MANAGER) | Xóa ca |
+| `/api/v1/groups/{groupId}/shifts/{shiftId}/lock` | PATCH | Bearer (MANAGER) | Khóa ca |
 
 ### 7. Shift Requirement (B10)
 | API | Method | Auth | Mô tả |
@@ -510,15 +517,65 @@
 | `/api/v1/shifts/{shiftId}/requirements/{requirementId}` | PATCH | Bearer (MANAGER) | Cập nhật nhu cầu |
 | `/api/v1/shifts/{shiftId}/requirements/{requirementId}` | DELETE | Bearer (MANAGER) | Xóa nhu cầu |
 
-### 8. Admin (Kế hoạch triển khai)
+### 8. Availability (B08)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/availability` | GET | Bearer | Lấy lịch rảnh của user hiện tại |
+| `/api/v1/availability` | PUT | Bearer | Cập nhật lịch rảnh của user hiện tại |
+
+### 9. Registration & Assignment (B12-B16)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/shifts/{shiftId}/register` | POST | Bearer (MEMBER) | Đăng ký ca vào vị trí |
+| `/api/v1/registrations/{registrationId}/cancel` | PATCH | Bearer (MEMBER) | Hủy đăng ký ca |
+| `/api/v1/shifts/{shiftId}/registrations/pending` | GET | Bearer (MANAGER) | Danh sách đăng ký chờ duyệt theo ca |
+| `/api/v1/registrations/{registrationId}/approve` | PATCH | Bearer (MANAGER) | Duyệt đăng ký |
+| `/api/v1/registrations/{registrationId}/reject` | PATCH | Bearer (MANAGER) | Từ chối đăng ký |
+| `/api/v1/shifts/{shiftId}/assign` | POST | Bearer (MANAGER) | Gán nhân viên trực tiếp vào ca |
+
+### 10. Recommendation & Alerts (B17-B18)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/shifts/{shiftId}/recommendations?positionId=...` | GET | Bearer (MANAGER) | Gợi ý nhân viên phù hợp cho ca/vị trí |
+| `/api/v1/groups/{groupId}/alerts/understaffed` | GET | Bearer (MANAGER) | Danh sách ca thiếu người |
+
+### 11. Calendar & My Positions (B11, B19)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/me/calendar` | GET | Bearer | Lịch cá nhân (hỗ trợ `from`, `to`, `range`) |
+| `/api/v1/groups/{groupId}/my-positions` | GET | Bearer | Danh sách vị trí user có thể đăng ký trong group |
+| `/api/v1/groups/{groupId}/my-positions` | PUT | Bearer | Cập nhật danh sách vị trí của user trong group |
+
+### 12. Shift Change Request (B21-B22)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/shift-change-requests` | POST | Bearer (MEMBER) | Tạo yêu cầu đổi ca |
+| `/api/v1/groups/{groupId}/shift-change-requests/pending` | GET | Bearer (MANAGER) | Danh sách yêu cầu đổi ca chờ duyệt |
+| `/api/v1/groups/{groupId}/shift-change-requests/{id}/approve` | PATCH | Bearer (MANAGER) | Duyệt yêu cầu đổi ca |
+| `/api/v1/groups/{groupId}/shift-change-requests/{id}/reject` | PATCH | Bearer (MANAGER) | Từ chối yêu cầu đổi ca |
+
+### 13. Salary & Payroll (B24-B25)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{groupId}/salary-configs` | GET | Bearer (MANAGER) | Danh sách cấu hình lương |
+| `/api/v1/groups/{groupId}/salary-configs` | POST | Bearer (MANAGER) | Tạo cấu hình lương |
+| `/api/v1/groups/{groupId}/salary-configs/{configId}` | DELETE | Bearer (MANAGER) | Xóa cấu hình lương |
+| `/api/v1/groups/{groupId}/payroll?month=...&year=...` | GET | Bearer (MANAGER) | Báo cáo bảng lương theo tháng |
+
+### 14. Activity Report (B26)
+| API | Method | Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `/api/v1/groups/{id}/reports/weekly?year=...&week=...` | GET | Bearer (MANAGER) | Báo cáo hoạt động theo tuần |
+| `/api/v1/groups/{id}/reports/monthly?year=...&month=...` | GET | Bearer (MANAGER) | Báo cáo hoạt động theo tháng |
+
+### 15. Admin (B23)
 | API | Method | Auth | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `/api/v1/admin/users` | GET | Bearer (ADMIN) | Danh sách user toàn hệ thống, hỗ trợ lọc/phân trang |
-| `/api/v1/admin/users/{id}/status` | PATCH | Bearer (ADMIN) | Khóa/mở user (`ACTIVE`/`BANNED`) |
+| `/api/v1/admin/users/{id}/toggle-status` | PATCH | Bearer (ADMIN) | Bật/tắt trạng thái user |
 | `/api/v1/admin/groups` | GET | Bearer (ADMIN) | Danh sách group toàn hệ thống, hỗ trợ lọc/phân trang |
-| `/api/v1/admin/groups/{id}/status` | PATCH | Bearer (ADMIN) | Khóa/mở group (`ACTIVE`/`INACTIVE`) |
-| `/api/v1/admin/metrics/daily` | GET | Bearer (ADMIN) | Chỉ số vận hành theo ngày |
-| `/api/v1/admin/metrics/monthly` | GET | Bearer (ADMIN) | Chỉ số vận hành theo tháng |
+| `/api/v1/admin/groups/{id}/toggle-status` | PATCH | Bearer (ADMIN) | Bật/tắt trạng thái group |
+| `/api/v1/admin/metrics` | GET | Bearer (ADMIN) | Chỉ số tổng quan hệ thống |
 | `/api/v1/admin/audit-logs` | GET | Bearer (ADMIN) | Lịch sử thao tác quản trị hệ thống |
 
 ---
