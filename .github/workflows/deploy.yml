@@ -15,16 +15,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6.0.2
 
-      - name: Validate VITE_API_BASE_URL
-        shell: bash
-        env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-        run: |
-          if [ -z "${VITE_API_BASE_URL}" ]; then
-            echo "Missing GitHub variable: VITE_API_BASE_URL"
-            exit 1
-          fi
-
       - name: Validate Docker Hub secrets
         shell: bash
         env:
@@ -60,12 +50,12 @@ jobs:
           push: true
           platforms: linux/amd64
           build-args: |
-            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/workshift-frontend:latest
 
       - name: Trigger Render backend deploy (optional)
         env:
-          DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL || secrets.RENDER_BACKEND_HOOK_URL }}
         run: |
           if [ -z "${DEPLOY_HOOK_URL}" ]; then
             echo "Skip backend deploy hook: secret not set."
@@ -75,7 +65,7 @@ jobs:
 
       - name: Trigger Render frontend deploy (optional)
         env:
-          DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL || secrets.RENDER_FRONTEND_HOOK_URL }}
         run: |
           if [ -z "${DEPLOY_HOOK_URL}" ]; then
             echo "Skip frontend deploy hook: secret not set."
