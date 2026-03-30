@@ -1,9 +1,10 @@
 # BẢNG ĐẶC TẢ HOÀN CHỈNH (SPECIFICATION)
 
 > **Hệ thống quản lý đăng ký & phân ca lao động thời vụ (Multi-group Workshift Management)**
->
 > Phiên bản: 1.8 (Cập nhật theo tiến trình triển khai thực tế frontend + backend)
 > Ngày cập nhật: 2026-03-27
+
+
 
 ---
 
@@ -475,6 +476,7 @@
 | `/api/v1/groups/{id}` | PUT | Bearer (MANAGER) | Cập nhật thông tin group |
 | `/api/v1/groups/{id}/status` | PATCH | Bearer (MANAGER) | Đóng/Mở lại group |
 | `/api/v1/groups/{id}` | DELETE | Bearer (MANAGER) | Xóa vĩnh viễn group |
+ main
 | `/api/v1/groups/{id}/leave` | DELETE | Bearer | Rời group |
 
 ### 3. Group Manager Audit (B05.1)
