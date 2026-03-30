@@ -1,0 +1,85 @@
+name: Deploy to Render (Docker images)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Validate VITE_API_BASE_URL
+        shell: bash
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        run: |
+          if [ -z "${VITE_API_BASE_URL}" ]; then
+            echo "Missing GitHub variable: VITE_API_BASE_URL"
+            exit 1
+          fi
+
+      - name: Validate Docker Hub secrets
+        shell: bash
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "${DOCKERHUB_USERNAME}" ] || [ -z "${DOCKERHUB_TOKEN}" ]; then
+            echo "Missing Docker Hub secrets: DOCKERHUB_USERNAME and/or DOCKERHUB_TOKEN"
+            exit 1
+          fi
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & push backend image (Docker Hub)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./workshift-backend
+          file: ./workshift-backend/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/workshift-backend:latest
+
+      - name: Build & push frontend image (Docker Hub)
+        uses: docker/build-push-action@v7
+        with:
+          context: ./workshift-frontend
+          file: ./workshift-frontend/Dockerfile
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/workshift-frontend:latest
+
+      - name: Trigger Render backend deploy (optional)
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_BACKEND_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${DEPLOY_HOOK_URL}" ]; then
+            echo "Skip backend deploy hook: secret not set."
+            exit 0
+          fi
+          curl -sS -X POST "$DEPLOY_HOOK_URL"
+
+      - name: Trigger Render frontend deploy (optional)
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_FRONTEND_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${DEPLOY_HOOK_URL}" ]; then
+            echo "Skip frontend deploy hook: secret not set."
+            exit 0
+          fi
+          curl -sS -X POST "$DEPLOY_HOOK_URL"
+
