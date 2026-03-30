@@ -1,5 +1,6 @@
 package com.workshift.backend.config;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -42,9 +43,20 @@ public class SecurityConfig {
 	}
 
 	@Bean
-	public CorsConfigurationSource corsConfigurationSource() {
+	public CorsConfigurationSource corsConfigurationSource(
+			@org.springframework.beans.factory.annotation.Value("${CORS_ALLOWED_ORIGINS:}") String corsAllowedOrigins) {
 		CorsConfiguration config = new CorsConfiguration();
-		config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+		if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
+			// CORS_ALLOWED_ORIGINS format: "https://frontend.example.com,http://localhost:5173"
+			List<String> allowedOrigins = Arrays.stream(corsAllowedOrigins.split(","))
+					.map(String::trim)
+					.filter(s -> !s.isEmpty())
+					.toList();
+			config.setAllowedOrigins(allowedOrigins);
+		} else {
+			// Dev default (giữ để chạy local).
+			config.setAllowedOrigins(List.of("http://localhost:5173", "http://127.0.0.1:5173"));
+		}
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		config.setAllowedHeaders(List.of("*"));
 		config.setAllowCredentials(false);
