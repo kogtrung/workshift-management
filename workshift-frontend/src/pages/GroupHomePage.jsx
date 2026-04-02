@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, useOutletContext, useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthContext'
-import { leaveGroup } from '../features/groups/groupApi'
 import { getShifts } from '../features/shifts/shiftApi'
 import { getSalaryConfigs } from '../features/salary/salaryApi'
 import { getPositions } from '../features/positions/positionApi'
@@ -82,8 +81,6 @@ export function GroupHomePage() {
   const { groupId } = useParams()
   const { groupInfo, isManager } = useOutletContext() || {}
   const { user } = useAuth()
-  const navigate = useNavigate()
-  const [leaving, setLeaving] = useState(false)
 
   // Calendar State
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
@@ -255,19 +252,6 @@ export function GroupHomePage() {
     }
   }, [shifts, salaries, isManager, user, positions])
 
-  async function handleLeave() {
-    if (!confirm('Bạn có chắc chắn muốn rời group này?')) return
-    setLeaving(true)
-    try {
-      await leaveGroup(groupId)
-      navigate('/app/groups', { replace: true })
-    } catch (err) {
-      alert(err?.message || 'Không thể rời group')
-    } finally {
-      setLeaving(false)
-    }
-  }
-
   // Staff chỉ xem lịch cá nhân của mình; Manager xem toàn bộ ca của nhóm.
   return (
     <div className="w-full space-y-6">
@@ -282,18 +266,6 @@ export function GroupHomePage() {
           </h2>
           <p className="text-sm text-on-surface-variant font-medium">Lịch làm việc và thống kê {isManager ? 'nhóm' : 'cá nhân'} của tuần hiện tại.</p>
         </div>
-
-        {/* Leave group button for Staff */}
-        {!isManager && groupInfo && (
-          <button
-            onClick={handleLeave}
-            disabled={leaving}
-            className="px-4 py-2 bg-surface-container-lowest text-error font-semibold rounded-lg border border-error/20 hover:bg-error/5 transition-colors flex items-center gap-2 self-start"
-          >
-            <span className="material-symbols-outlined text-sm">logout</span>
-            <span className="text-sm">{leaving ? 'Đang rời...' : 'Rời group'}</span>
-          </button>
-        )}
       </div>
 
       {/* Weekly Stats Cards */}

@@ -38,7 +38,7 @@ export function getGroupMembers(groupId) {
 }
 
 export function leaveGroup(groupId) {
-  return apiFetch(`/groups/${groupId}/leave`, { method: 'DELETE' })
+  return apiFetch(`/groups/${groupId}/members/me`, { method: 'DELETE' })
 }
 
 export function updateGroup(groupId, payload) {
