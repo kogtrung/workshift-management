@@ -14,4 +14,8 @@ public interface MemberPositionRepository extends JpaRepository<MemberPosition, 
 	boolean existsByGroupMemberIdAndPositionId(Long groupMemberId, Long positionId);
 
 	void deleteByGroupMemberIdAndPositionId(Long groupMemberId, Long positionId);
+
+	void deleteAllByGroupMemberId(Long groupMemberId);
+
+	void deleteAllByGroupMemberGroupId(Long groupId);
 }

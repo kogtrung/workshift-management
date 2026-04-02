@@ -30,6 +30,7 @@ import com.workshift.backend.group.dto.ReviewGroupMemberRequest;
 import com.workshift.backend.group.dto.UpdateGroupRequest;
 import com.workshift.backend.repository.GroupAuditLogRepository;
 import com.workshift.backend.repository.GroupMemberRepository;
+import com.workshift.backend.repository.MemberPositionRepository;
 import com.workshift.backend.repository.GroupRepository;
 import com.workshift.backend.repository.PositionRepository;
 import com.workshift.backend.repository.ShiftRepository;
@@ -44,6 +45,7 @@ public class GroupService {
 	private final GroupRepository groupRepository;
 	private final GroupMemberRepository groupMemberRepository;
 	private final GroupAuditLogRepository groupAuditLogRepository;
+	private final MemberPositionRepository memberPositionRepository;
 	private final PositionRepository positionRepository;
 	private final ShiftTemplateRepository shiftTemplateRepository;
 	private final ShiftRepository shiftRepository;
@@ -55,6 +57,7 @@ public class GroupService {
 			GroupRepository groupRepository,
 			GroupMemberRepository groupMemberRepository,
 			GroupAuditLogRepository groupAuditLogRepository,
+			MemberPositionRepository memberPositionRepository,
 			PositionRepository positionRepository,
 			ShiftTemplateRepository shiftTemplateRepository,
 			ShiftRepository shiftRepository,
@@ -65,6 +68,7 @@ public class GroupService {
 		this.groupRepository = groupRepository;
 		this.groupMemberRepository = groupMemberRepository;
 		this.groupAuditLogRepository = groupAuditLogRepository;
+		this.memberPositionRepository = memberPositionRepository;
 		this.positionRepository = positionRepository;
 		this.shiftTemplateRepository = shiftTemplateRepository;
 		this.shiftRepository = shiftRepository;
@@ -224,6 +228,7 @@ public class GroupService {
 		shiftRepository.deleteAllByGroupId(groupId);
 		shiftTemplateRepository.deleteAllByGroupId(groupId);
 		positionRepository.deleteAllByGroupId(groupId);
+		memberPositionRepository.deleteAllByGroupMemberGroupId(groupId);
 		groupAuditLogRepository.deleteAllByGroupId(groupId);
 		groupMemberRepository.deleteAllByGroupId(groupId);
 		groupRepository.delete(group);
@@ -328,6 +333,7 @@ public class GroupService {
 				Map.of("source", "leave_group")
 		);
 
+		memberPositionRepository.deleteAllByGroupMemberId(membership.getId());
 		groupMemberRepository.delete(membership);
 	}
 

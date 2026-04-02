@@ -23,12 +23,10 @@ const MANAGER_NAV = [
 const STAFF_NAV = [
   { to: '', icon: 'dashboard', label: 'Tổng quan', end: true },
   { to: 'shifts', icon: 'calendar_month', label: 'Lịch ca' },
-  { to: 'availability', icon: 'event_available', label: 'Lịch rảnh' },
   { to: 'my-schedule', icon: 'date_range', label: 'Lịch của tôi' },
-  { to: 'audit-logs', icon: 'history', label: 'Nhật ký' },
+  { to: 'availability', icon: 'event_available', label: 'Lịch rảnh' },
   { to: 'profile', icon: 'person', label: 'Thông tin cá nhân' },
   { to: 'settings', icon: 'settings', label: 'Cài đặt' },
-  { to: 'members', icon: 'group', label: 'Thành viên' },
 ]
 
 export function GroupLayout() {

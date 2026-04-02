@@ -31,8 +31,6 @@ export function MySchedulePage() {
   const { groupId } = useParams()
   const { isManager } = useOutletContext() || {}
 
-  // Tab: 'calendar' or 'available'
-  const [tab, setTab] = useState('calendar')
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
 
   // Calendar data (B19)
@@ -93,9 +91,8 @@ export function MySchedulePage() {
   }
 
   useEffect(() => {
-    if (tab === 'calendar') loadCalendar()
-    else loadShifts()
-  }, [groupId, weekStart, tab])
+    loadCalendar()
+  }, [groupId, weekStart])
 
   /* ───── Calendar by date ───── */
   const calByDate = useMemo(() => {
@@ -139,8 +136,7 @@ export function MySchedulePage() {
       await registerShift(regShift.id, Number(regPos), regNote.trim() || null)
       showToast('Đăng ký ca thành công! Chờ quản lý duyệt.')
       setRegShift(null); setRegPos(''); setRegNote('')
-      if (tab === 'calendar') await loadCalendar()
-      else await loadShifts()
+      await loadCalendar()
     } catch (err) {
       setError(err?.message || 'Không thể đăng ký ca')
     } finally { setRegistering(false) }
@@ -183,7 +179,7 @@ export function MySchedulePage() {
     await loadCalendar()
   }
 
-  const loading = tab === 'calendar' ? loadingCal : loadingShifts
+  const loading = loadingCal
 
   return (
     <div className="w-full space-y-6">
@@ -193,21 +189,8 @@ export function MySchedulePage() {
           <p className="text-xs font-bold tracking-[0.05em] uppercase text-on-surface-variant opacity-70">Cá nhân</p>
           <h2 className="text-3xl font-extrabold text-on-surface tracking-tight">Lịch làm việc</h2>
           <p className="text-on-surface-variant font-medium">
-            {tab === 'calendar' ? 'Xem lịch ca đã đăng ký và trạng thái duyệt' : 'Xem các ca đang mở và đăng ký'}
+            Xem lịch ca đã đăng ký và trạng thái duyệt
           </p>
-        </div>
-        {/* Tab Switcher */}
-        <div className="flex bg-surface-container rounded-xl p-1 self-start">
-          <button onClick={() => setTab('calendar')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${tab === 'calendar' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>
-            <span className="material-symbols-outlined text-base">calendar_month</span>
-            Lịch của tôi
-          </button>
-          <button onClick={() => setTab('available')}
-            className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${tab === 'available' ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:bg-surface-container-high'}`}>
-            <span className="material-symbols-outlined text-base">event_available</span>
-            Ca đang mở
-          </button>
         </div>
       </div>
 
@@ -233,8 +216,8 @@ export function MySchedulePage() {
       {error && <div className="bg-error-container/20 text-on-error-container rounded-xl p-4 text-center">{error}</div>}
       {loading && <div className="text-center py-12"><p className="text-on-surface-variant animate-pulse">Đang tải...</p></div>}
 
-      {/* ═══ TAB: My Calendar (B19) ═══ */}
-      {!loading && tab === 'calendar' && (
+      {/* ═══ Lịch của tôi (B19) ═══ */}
+      {!loading && (
         <>
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -339,81 +322,7 @@ export function MySchedulePage() {
             <div className="text-center py-12 bg-surface-container-lowest rounded-2xl border border-outline/10 border-dashed">
               <span className="material-symbols-outlined text-5xl text-on-surface-variant opacity-20 mb-4">event_busy</span>
               <h3 className="text-xl font-bold text-on-surface mb-2">Chưa có lịch</h3>
-              <p className="text-on-surface-variant font-medium">Chuyển sang tab "Ca đang mở" để đăng ký ca làm việc.</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ═══ TAB: Available Shifts (B11 + B12) ═══ */}
-      {!loading && tab === 'available' && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3">
-            {weekDays.map((day, idx) => {
-              const key = fmtISO(day)
-              const dayShifts = (shiftsByDate[key] || []).filter(s => s.status === 'OPEN')
-              const isToday = key === fmtISO(new Date())
-              return (
-                <div key={key}
-                  className={`rounded-2xl border transition-all flex flex-col ${
-                    isToday ? 'bg-primary-container/10 border-primary/20 shadow-md ring-1 ring-primary/10'
-                    : 'bg-surface-container-lowest border-outline/10 shadow-sm'
-                  }`}>
-                  <div className={`px-3 py-3 border-b flex items-center gap-2 ${isToday ? 'border-primary/10' : 'border-outline/5'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black ${isToday ? 'bg-primary text-on-primary' : 'text-on-surface'}`}>
-                      {day.getDate()}
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{DAY_LABELS[idx]}</span>
-                  </div>
-                  <div className="flex-1 p-2 space-y-2 min-h-[100px]">
-                    {dayShifts.length === 0 && (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-[10px] text-on-surface-variant opacity-30">Không có ca mở</p>
-                      </div>
-                    )}
-                    {dayShifts.map(shift => {
-                      const shiftReqs = shift.requirements || []
-                      return (
-                        <div key={shift.id}
-                          className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 hover:shadow-sm transition-all">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
-                            <span className="text-xs font-bold text-on-surface truncate">{shift.name || 'Ca'}</span>
-                          </div>
-                          <p className="text-[10px] text-on-surface-variant font-medium mb-1.5 pl-3">
-                            {fmtTime(shift.startTime)} – {fmtTime(shift.endTime)}
-                          </p>
-                          {shiftReqs.length > 0 && (
-                            <div className="space-y-1 mb-1.5">
-                              {shiftReqs.map(req => (
-                                <div key={req.id} className="flex items-center gap-1.5">
-                                  <div className="w-3 h-3 rounded flex-shrink-0"
-                                    style={{ backgroundColor: req.positionColorCode || '#6366f1' }} />
-                                  <span className="text-[10px] text-on-surface truncate flex-1">{req.positionName}</span>
-                                  <span className="text-[10px] font-bold text-on-surface-variant">{req.quantity}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <button onClick={() => { setRegShift(shift); setRegPos(''); setRegNote('') }}
-                            className="w-full mt-1 py-1.5 text-[10px] font-bold text-primary bg-primary-container/20 hover:bg-primary-container/40 rounded-lg transition-colors flex items-center justify-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">how_to_reg</span>
-                            Đăng ký ca
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {shifts.filter(s => s.status === 'OPEN').length === 0 && (
-            <div className="text-center py-12 bg-surface-container-lowest rounded-2xl border border-outline/10 border-dashed">
-              <span className="material-symbols-outlined text-5xl text-on-surface-variant opacity-20 mb-4">event_busy</span>
-              <h3 className="text-xl font-bold text-on-surface mb-2">Không có ca đang mở</h3>
-              <p className="text-on-surface-variant font-medium">Chưa có ca nào đang mở đăng ký trong tuần này.</p>
+              <p className="text-on-surface-variant font-medium">Mở màn hình "Lịch ca" để đăng ký ca làm việc.</p>
             </div>
           )}
         </>

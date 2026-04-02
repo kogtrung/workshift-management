@@ -160,6 +160,19 @@ public class GroupController {
 		return ResponseEntity.ok(ApiResponse.ok("Rời group thành công", null));
 	}
 
+	@DeleteMapping("/{id}/members/me")
+	public ResponseEntity<ApiResponse<Void>> leaveGroupByCurrentMember(
+			Authentication authentication,
+			@PathVariable("id") Long groupId
+	) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "Chưa xác thực");
+		}
+
+		groupService.leaveGroup(authentication.getName(), groupId);
+		return ResponseEntity.ok(ApiResponse.ok("Rời group thành công", null));
+	}
+
 	@GetMapping("/{id}/members/pending")
 	public ResponseEntity<ApiResponse<List<GroupMemberDetailResponse>>> getPendingMembers(
 			Authentication authentication,
